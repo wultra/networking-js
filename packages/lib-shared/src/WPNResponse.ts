@@ -14,5 +14,17 @@
 // and limitations under the License.
 //
 
-/** Version of the SDK (matches the package.json version) */
-export const WPN_SDK_VERSION = "%%SDK_VERSION%%"
+import { WPNKnownRestApiError } from "./WPNKnownRestApiError"
+
+/** Response from the API. */
+export interface WPNResponse<T> {
+    status: "OK" | "ERROR"
+    responseError?: WPNResponseError
+    responseObject?: T
+} 
+  
+/** Error object when error on the server happens. */
+export interface WPNResponseError {
+    code: WPNKnownRestApiError | string
+    message: string
+}

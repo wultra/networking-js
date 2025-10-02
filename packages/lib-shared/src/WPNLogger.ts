@@ -1,5 +1,5 @@
 //
-// Copyright 2024 Wultra s.r.o.
+// Copyright 2025 Wultra s.r.o.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@
 
 import { WPNException } from "./WPNException"
 
-/**
- * How much should PowerAuthNetworking library log into the console.
- */
+/** How much should PowerAuthNetworking library log into the console.*/
 export enum WPNLoggerVerbosity {
     /** No logs will be printed. */
     NONE    = 0,
@@ -34,16 +32,34 @@ export enum WPNLoggerVerbosity {
     DEBUG   = 5
 }
 
-/**
- * PowerAuthNetworking logging utility.
- */
-export class WPNLogger {
-
+/** Configuration of the PowerAuthNetworking logger. */
+export class WPNLoggerConfig {
     /** Which level of logs (and lower) should be logged into the console. Default value is `WARN`. */
     public static verbosity: WPNLoggerVerbosity = WPNLoggerVerbosity.WARN
 
     /** Include time in the logs? */
     public static includeTime: boolean = true
+
+    /** 
+     * Optional listener that will receive log messages.
+     * 
+     * Note that listener will receive all log messages regardless the verbosity level.
+     */
+    public static listener?: WPNLoggerListener
+}
+
+/** Listener interface for receiving log messages. */
+export interface WPNLoggerListener {
+    /** 
+     * Method called when a log message is generated. 
+     * 
+     * Note that this method is called regardless the verbosity level.
+     */
+    log(message: string, level: WPNLoggerVerbosity): void
+}
+
+/** PowerAuthNetworking logging utility.*/
+export class WPNLogger {
 
     static debug(message: string | any) {
         this.log(message, WPNLoggerVerbosity.DEBUG)
@@ -70,34 +86,28 @@ export class WPNLogger {
         return new WPNException(message)
     }
 
-    private static log(message: string | any, level: WPNLoggerVerbosity) {
+    private static log(message: string, level: WPNLoggerVerbosity) {
 
-        if (this.verbosity >= level) {
+        if (WPNLoggerConfig.verbosity >= level) {
 
             let lvl: string
-
             switch (level) {
-                case WPNLoggerVerbosity.DEBUG:
-                    lvl = "DBG"
-                    break
-                case WPNLoggerVerbosity.INFO:
-                    lvl = "INF"
-                    break
-                case WPNLoggerVerbosity.WARN:
-                    lvl = "WRN"
-                    break
-                case WPNLoggerVerbosity.ERROR:
-                    lvl = "ERR"
-                    break
-                case WPNLoggerVerbosity.VERBOSE:
-                    lvl = "VBS"
-                    break
-                default:
-                    lvl = "UKN"
-                    break
+                case WPNLoggerVerbosity.DEBUG:   lvl = "DBG"; break;
+                case WPNLoggerVerbosity.INFO:    lvl = "INF"; break;
+                case WPNLoggerVerbosity.WARN:    lvl = "WRN"; break;
+                case WPNLoggerVerbosity.ERROR:   lvl = "ERR"; break;
+                case WPNLoggerVerbosity.VERBOSE: lvl = "VBS"; break;
+                default:                         lvl = "UKN"; break;
             }
 
-            console.log(`[WPN:${lvl}${this.includeTime ? " - " + new Date().toISOString() : ""}] ${message}`)
+            console.log(`[WPN:${lvl}${WPNLoggerConfig.includeTime ? " - " + new Date().toISOString() : ""}] ${message}`)
+        }
+
+        // Notify listener if available regardless of the verbosity level
+        try {
+            WPNLoggerConfig.listener?.log(message, level)
+        } catch (e) {
+            // Ignore errors from the listener
         }
     }
 }

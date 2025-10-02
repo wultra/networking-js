@@ -18,32 +18,44 @@ export enum WPNUserAgent {
     SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
 }
 
-export namespace WPNUserAgent {
+export class WPNUserAgentUtils {
     
-    let cachedEnvironmentInfo: WPNEnvironmentInfo | undefined
+    private static cachedEnvironmentInfo: WPNEnvironmentInfo | undefined
 
-    export async function getDefault(): Promise<string> {
-        const product = "PowerAuthNetworkingJS"
-        const sdkVer = WPN_SDK_VERSION
-        const envInfo = await getEnvironmentInfo()
-        const appVer = envInfo.applicationVersion || "0.0"
-        const appId = envInfo.applicationIdentifier || "unknown"
-        const maker = envInfo.deviceManufacturer
-        const model = envInfo.deviceId
-        const os = envInfo.systemName
-        const osVer = envInfo.systemVersion
-        const userAgent = `${product}/${sdkVer} ${appId}/${appVer} (${maker}; ${os}/${osVer}; ${model})`
-        return userAgent
+    static async get(userAgent: WPNUserAgent | string): Promise<string | undefined> {
+
+        // Set User-Agent header
+        if (userAgent == WPNUserAgent.LIBRARY_DEFAULT) {
+            
+            // Construct default user agent string
+            const product = "PowerAuthNetworkingJS"
+            const sdkVer = WPN_SDK_VERSION
+            const envInfo = await this.getEnvironmentInfo()
+            const appVer = envInfo.applicationVersion || "0.0"
+            const appId = envInfo.applicationIdentifier || "unknown"
+            const maker = envInfo.deviceManufacturer
+            const model = envInfo.deviceId
+            const os = envInfo.systemName
+            const osVer = envInfo.systemVersion
+            return `${product}/${sdkVer} ${appId}/${appVer} (${maker}; ${os}/${osVer}; ${model})`
+
+        } else if (userAgent == WPNUserAgent.SYSTEM_DEFAULT) {
+            // leave empty to default to system value
+            return undefined;
+        } else {
+            // Custom user agent string
+            return userAgent;
+        }
     }
 
-    export async function getEnvironmentInfo(): Promise<WPNEnvironmentInfo> {
+    static async getEnvironmentInfo(): Promise<WPNEnvironmentInfo> {
         try {
             // If we have cached environment info, return it to avoid unnecessary calls.
             // This expects that the environment info does not change during the app lifetime.
-            if (!cachedEnvironmentInfo) {
-                cachedEnvironmentInfo = await WPNPlatformUtils.provider.getEnvironmentInfo();
+            if (!this.cachedEnvironmentInfo) {
+                this.cachedEnvironmentInfo = await WPNPlatformUtils.provider.getEnvironmentInfo();
             }
-            return cachedEnvironmentInfo
+            return this.cachedEnvironmentInfo
         } catch (e) {
             WPNLogger.error(`Failed to get environment info: ${e}`)
             // In case of error, we return a default object with "unknown" values.

@@ -1,26 +1,75 @@
+//
+// Copyright 2025 Wultra s.r.o.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions
+// and limitations under the License.
+//
 
+/** 
+ * Represents a PowerAuth-based API endpoint. 
+ * 
+ * Use static methods to create instances of this class: 
+ * - `WPNEndpoint.signed(...)` for signed endpoints
+ * - `WPNEndpoint.signedWithToken(...)` for signed endpoints with token
+ * - `WPNEndpoint.unsigned(...)` for unsigned endpoints
+ * 
+ * @typeParam T Type of the expected response data. Use `void` if no data is expected.
+ */
 export class WPNEndpoint<T> {
 
-    static signed<U>(path: string, uriId: string, returnsData: boolean, dateFields?: string[]): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, dateFields, uriId, undefined)
+    /**
+     * Create signed endpoint that requires PowerAuth signature.
+     * 
+     * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
+     * @param uriId URI ID used for signature calculation.
+     * This is not necessarily the same as the path, but rather an identifier of the endpoint.
+     * @param returnsData True if the endpoint is expected to return data in the response.
+     * @param responseConfig Optional configuration for the response parsing.
+     */
+    static signed<U>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration): WPNEndpoint<U> {
+        return new WPNEndpoint<U>(path, returnsData, responseConfig, uriId, undefined)
     }
 
-    static signedWithToken<U>(path: string, tokenName: string, returnsData: boolean, dateFields?: string[]): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, dateFields, undefined, tokenName)
+    /**
+     * Create signed endpoint that requires PowerAuth signature and token-based authentication.
+     * 
+     * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
+     * @param tokenName Name of the token used for authentication, for example "myAuthToken".
+     * @param returnsData True if the endpoint is expected to return data in the response.
+     * @param responseConfig Optional configuration for the response parsing.
+     */
+    static signedWithToken<U>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration): WPNEndpoint<U> {
+        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, tokenName)
     }
 
-    static unsigned<U>(path: string, returnsData: boolean, dateFields?: string[]): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, dateFields, undefined, undefined)
+    /**
+     * Create unsigned endpoint that does not require any authentication.
+     * 
+     * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
+     * @param returnsData True if the endpoint is expected to return data in the response.
+     * @param responseConfig Optional configuration for the response parsing.
+     */
+    static unsigned<U>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration): WPNEndpoint<U> {
+        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, undefined)
     }
 
-    // HTTP method for the request. We currently support only POST method.
-    readonly method = "POST"
-    readonly path: string
-    readonly returnsData: boolean
-    readonly dateFields?: string[]
-    readonly uriId?: string
-    readonly tokenName?: string
+    readonly method = "POST" // HTTP method for the request. We currently support only POST method.
+    readonly path: string // Endpoint path, starting with a slash, for example "/pa/myendpoint"
+    readonly returnsData: boolean // True if the endpoint is expected to return data in the response.
+    readonly responseConfig?: WPNResponseConfiguration // Optional configuration for the response parsing.
+    readonly uriId?: string // URI ID used for signature calculation. Only for signed endpoints.
+    readonly tokenName?: string // Name of the token used for authentication. Only for signed-with-token endpoints.
 
+    /** Type of the endpoint, based on whether it requires signature or token. */
     get type(): WPNEndpointType {
         if (this.uriId) {
             return WPNEndpointType.SIGNED
@@ -31,16 +80,31 @@ export class WPNEndpoint<T> {
         }
     }
 
-    private constructor(path: string, returnsData: boolean, dateFields?: string[], uriId?: string, tokenName?: string) {
+    private constructor(path: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration, uriId?: string, tokenName?: string) {
         // Ensure that path starts with a slash
         this.path = (path.startsWith("/") ? path : ("/" + path))
         this.returnsData = returnsData
-        this.dateFields = dateFields
+        this.responseConfig = responseConfig
         this.uriId = uriId
         this.tokenName = tokenName
     }
 }
 
+/** Configuration for response parsing. */
+export class WPNResponseConfiguration {
+    /** List of fields in the response that should be parsed as dates. */
+    readonly dateFields?: string[]
+
+    /**
+     * Create response configuration.
+     * @param dateFields List of fields in the response that should be parsed as dates.
+     */
+    constructor(dateFields?: string[]) {
+        this.dateFields = dateFields
+    }
+}
+
+/** Type of the endpoint, based on whether it requires signature or token. */
 export enum WPNEndpointType {
     SIGNED,
     SIGNED_WITH_TOKEN,

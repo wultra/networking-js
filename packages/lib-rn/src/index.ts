@@ -1,5 +1,5 @@
 //
-// Copyright 2024 Wultra s.r.o.
+// Copyright 2025 Wultra s.r.o.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@
 import { WPNPlatformUtils } from "../../lib-shared/src/WPNPlatformDependencies"
 import { WPNRNPlatformUtilsProvider } from "./WPNRNPlatformUtilsProvider"
 
-// EXPORTS
+// SHARED EXPORTS
+
+export * from "../../lib-shared/src/WPNEndpoint"
+export * from "../../lib-shared/src/WPNException"
+export * from "../../lib-shared/src/WPNKnownRestApiError"
+export { WPNLoggerVerbosity, WPNLoggerConfig } from "../../lib-shared/src/WPNLogger"
+export * from "../../lib-shared/src/WPNResponse"
+export * from "../../lib-shared/src/WPNSDKVersion"
+export { WPNUserAgent } from "../../lib-shared/src/WPNUserAgent"
+
+// REACT NATIVE SPECIFIC EXPORTS
 
 export { WPNNetworking } from "./WPNRNNetworking"
 export { WPNRequestProcessor } from "../../lib-shared/src/WPNNetworkingBase"
-export * from "../../lib-shared/src/WPNEndpoint"
-export * from "../../lib-shared/src/WPNUserAgent"
-export * from "../../lib-shared/src/WPNSDKVersion"
-export * from "../../lib-shared/src/WPNException"
-export * from "../../lib-shared/src/WPNLogger"
-export * from "../../lib-shared/src/WPNKnownRestApiError"
 
 // REACT NATIVE SPECIFIC IMPLEMENTATIONS
 

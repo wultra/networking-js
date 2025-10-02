@@ -14,24 +14,23 @@
 // and limitations under the License.
 //
 
-import { WPNKnownRestApiError } from "./WPNKnownRestApiError"
+import { WPNResponse } from "./WPNResponse"
 import { WPNException } from "./WPNException"
-// import { PowerAuth, PowerAuthAuthentication } from 'react-native-powerauth-mobile-sdk'
-import { WPNLogger, WPNLoggerVerbosity } from "./WPNLogger"
-import { WPNUserAgent } from "./WPNUserAgent"
+import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
+import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
 import { WPNEndpoint } from "./WPNEndpoint"
 
+/** Function to process requests before sending */
 export type WPNRequestProcessor = (request: RequestInit) => RequestInit
+/** Authentication token to be added to the request headers */
 export type WPNAuthToken = { key: string, value: string } | undefined
 
+/** Base class for networking implementations. */
 export abstract class WPNNetworkingBase {
 
     private _acceptLanguage = "en"
 
-    /**
-     * Returns accept language for the outgoing requests headers for `operations`, `push` and `inbox` objects.
-     *
-     */
+    /** Returns accept language for the outgoing requests headers for `operations`, `push` and `inbox` objects. */
     get acceptLanguage() {
         return this._acceptLanguage
     }
@@ -71,24 +70,20 @@ export abstract class WPNNetworkingBase {
         requestProcessor?: WPNRequestProcessor
     ): Promise<WPNResponse<T>> {
 
+        // prepare URL, body and headers
         const url = this.baseURL + endpoint.path
         const body = JSON.stringify(requestData)
         const headers = new Headers()
 
-        // Only JSON requests are supported
-        const jsonType = "application/json"
+        const jsonType = "application/json" // Only JSON requests are supported
         headers.set("Content-Type", jsonType)
         headers.set("Accept", jsonType)
         headers.set("Accept-Language", this._acceptLanguage)
 
         // Set User-Agent header
-        if (this.userAgent == WPNUserAgent.LIBRARY_DEFAULT) {
-            headers.set("User-Agent", await WPNUserAgent.getDefault())
-        } else if (this.userAgent == WPNUserAgent.SYSTEM_DEFAULT) {
-            // leave empty to default to system value
-        } else {
-            // Custom user agent string
-            headers.set("User-Agent", this.userAgent)
+        const userAgent = await WPNUserAgentUtils.get(this.userAgent);
+        if (userAgent) {
+            headers.set("User-Agent", userAgent);
         }
 
         // Add authentication header if available
@@ -97,37 +92,39 @@ export abstract class WPNNetworkingBase {
             headers.set(authHeader.key, authHeader.value)
         }
 
-        //const request = await wpnRequest.getRequestInit(this._acceptLanguage, this.userAgent, requestProcessor)
+        // Create the request object
         let request: RequestInit = {
             method: endpoint.method,
             headers: headers,
             body: body
         }
 
+        // Allow request processor to modify the request
         if (requestProcessor) {
             request = requestProcessor(request)
         }
 
         WPNLogger.info(` -> POST ${url}`)
-        if (WPNLogger.verbosity >= WPNLoggerVerbosity.VERBOSE) {
+        if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
             WPNLogger.verbose(this.getHeadersString(request.headers as Headers))
             WPNLogger.verbose(body)
         }
 
+        // Fetch the result and get the response
         let result = await fetch(url, request)
         let responseBody = await result.text()
 
         WPNLogger.info(` <- POST ${url} - ${result.status}`)
-
-        if (WPNLogger.verbosity >= WPNLoggerVerbosity.VERBOSE) {
+        if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
             WPNLogger.verbose(this.getHeadersString(result.headers))
             WPNLogger.verbose(responseBody)
         }
 
+        // parse the response
         let response = JSON.parse(responseBody, (key: string, value: any) => {
 
             // TODO: resolve nested date fields
-            if (endpoint.dateFields?.includes(key)) {
+            if (endpoint.responseConfig?.dateFields?.includes(key)) {
                 return new Date(value)
             }
             return value
@@ -139,15 +136,16 @@ export abstract class WPNNetworkingBase {
             }
             response.responseError = response.responseObject as any
             response.responseObject = undefined
-        }
 
-        if (response.status == "OK" && endpoint.returnsData && response.responseObject == undefined) {
+        } else if (response.status == "OK" && endpoint.returnsData && response.responseObject == undefined) {
+            // If the endpoint is expected to return data, but no data object is present, throw an exception
             throw new WPNException("No data object retieved.", { ...result })
         }
 
         return response
     }
 
+    // Helper to convert headers to string for logging
     private getHeadersString(headers: Headers | undefined): string {
         let result = "Headers: {"
         headers?.forEach( (v: string, k: string) => {
@@ -155,17 +153,4 @@ export abstract class WPNNetworkingBase {
         })
         return result + "}"
     }
-}
-
-/** Response from the API. */
-export interface WPNResponse<T> {
-    status: "OK" | "ERROR"
-    responseError?: WPNResponseError
-    responseObject?: T
-} 
-  
-/** Error object when error on the server happens. */
-export interface WPNResponseError {
-    code: WPNKnownRestApiError | string
-    message: string
 }

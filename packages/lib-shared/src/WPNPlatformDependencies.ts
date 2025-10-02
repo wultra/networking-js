@@ -1,5 +1,5 @@
 //
-// Copyright 2024 Wultra s.r.o.
+// Copyright 2025 Wultra s.r.o.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 // and limitations under the License.
 //
 
+// Platform specific utilities
 export class WPNPlatformUtils {
     // Singleton instance, needs to be set by the platform specific implementation
     static provider: WPNPlatformUtilsProvider
@@ -34,8 +35,4 @@ export interface WPNEnvironmentInfo {
     deviceManufacturer: string;
     deviceId: string;
     sdkVersion: string;
-}
-
-export interface WPNPlatformPowerAuthWrapper {
-    
 }

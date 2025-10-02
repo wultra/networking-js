@@ -18,6 +18,7 @@ import { WPNPlatformUtilsProvider } from "../../lib-shared/src/WPNPlatformDepend
 import { Platform } from "react-native"
 import { PowerAuthUtils } from "react-native-powerauth-mobile-sdk"
 
+/** React Native platform utils provider */
 export class WPNRNPlatformUtilsProvider implements WPNPlatformUtilsProvider {
     getPlatform() {
         return Platform.OS == "ios" ? "ios" : "android"

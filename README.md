@@ -4,7 +4,7 @@
 > This library is __"WORK IN PROGRESS"__
 
 <!-- begin remove -->
-<p align="center"><img src="docs/intro.jpg" alt="Wultra Networking f" width="100%" /></p>
+<p align="center"><img src="docs/intro.jpg" alt="Wultra Networking JS SDK" width="100%" /></p>
 
 <!--
 [![npmrn](https://img.shields.io/npm/v/react-native-powerauth-networking?label=npm%3Areact-native)](https://www.npmjs.com/package/react-native-powerauth-networking) 
