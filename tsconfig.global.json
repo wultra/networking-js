@@ -6,7 +6,7 @@
     "strict": true,
     "declaration": false,
     "sourceMap": true,
-    "removeComments": true,
+    "removeComments": false, // Keep comments for better documentation
     "noImplicitAny": false,
     "moduleResolution": "node",
     "skipLibCheck": true

@@ -46,6 +46,7 @@ export default [
       dir: libRNOutput,
       format: 'es',
     },
+    external: ['react-native-powerauth-mobile-sdk', 'react-native'],
     plugins: [
       typescript({
         tsconfig: `${libRNDir}/tsconfig.json`

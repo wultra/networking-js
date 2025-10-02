@@ -2,16 +2,20 @@
   "name": "react-native-powerauth-networking",
   "version": "1.0.0",
   "description": "A high-level networking SDK for PowerAuth-based endpoints.",
-  "source": "src/index.ts",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "type": "module",
   "files": [
     "README.md",
     "LICENSE",
-    "lib/*"
+    "lib/index.js",
+    "lib/index.d.ts",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "gulp"
+    "prepack": "pushd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-rn/ && popd",
+    "postpack": "rm README.md LICENSE"
   },
   "keywords": [
     "react-native",

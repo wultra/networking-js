@@ -18,7 +18,7 @@ import { WPNResponse } from "./WPNResponse"
 import { WPNException } from "./WPNException"
 import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
 import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
-import { WPNEndpoint } from "./WPNEndpoint"
+import { WPNEndpoint, WPNEndpointType } from "./WPNEndpoint"
 
 /** Function to process requests before sending */
 export type WPNRequestProcessor = (request: RequestInit) => RequestInit
@@ -66,13 +66,14 @@ export abstract class WPNNetworkingBase {
     protected async callInternal<T>(
         requestData: any, 
         endpoint: WPNEndpoint<T>,
-        authHeaderProvider: (body: string) => Promise<WPNAuthToken>,
+        sign: (body: string) => Promise<WPNAuthToken>,
+        signWithToken: () => Promise<WPNAuthToken>,
         requestProcessor?: WPNRequestProcessor
     ): Promise<WPNResponse<T>> {
 
         // prepare URL, body and headers
         const url = this.baseURL + endpoint.path
-        const body = JSON.stringify(requestData)
+        const requestSerialized = JSON.stringify(requestData)
         const headers = new Headers()
 
         const jsonType = "application/json" // Only JSON requests are supported
@@ -87,16 +88,34 @@ export abstract class WPNNetworkingBase {
         }
 
         // Add authentication header if available
-        const authHeader = await authHeaderProvider(body)
+        let authHeader: WPNAuthToken = undefined;
+
+        // Ensure that authentication object is provided for signed requests
+        if (endpoint.type === WPNEndpointType.SIGNED) {
+            // Signed request
+            authHeader = await sign(requestSerialized);
+        } else if (endpoint.type === WPNEndpointType.SIGNED_WITH_TOKEN) {
+            // Signed request with token
+            authHeader = await signWithToken();
+        }
+
         if (authHeader) {
             headers.set(authHeader.key, authHeader.value)
+        }
+
+        // Encrypt the request if needed
+        const encryptResult = await this.encryptRequest(requestSerialized, endpoint);
+
+        if (encryptResult.header) {
+            // Add encryption header if available
+            headers.set(encryptResult.header.key, encryptResult.header.value)
         }
 
         // Create the request object
         let request: RequestInit = {
             method: endpoint.method,
             headers: headers,
-            body: body
+            body: encryptResult.body
         }
 
         // Allow request processor to modify the request
@@ -107,21 +126,30 @@ export abstract class WPNNetworkingBase {
         WPNLogger.info(` -> POST ${url}`)
         if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
             WPNLogger.verbose(this.getHeadersString(request.headers as Headers))
-            WPNLogger.verbose(body)
+            WPNLogger.verbose(requestSerialized)
+            if (encryptResult.body !== requestSerialized) {
+                WPNLogger.verbose("ENCRYPTED BODY: " + encryptResult.body)
+            }
         }
 
         // Fetch the result and get the response
-        let result = await fetch(url, request)
-        let responseBody = await result.text()
+        const result = await fetch(url, request)
+        const responseBody = await result.text()
+
+        // Decrypt the response if needed
+        const decryptedResponse = await encryptResult.decryptor(responseBody)
 
         WPNLogger.info(` <- POST ${url} - ${result.status}`)
         if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
             WPNLogger.verbose(this.getHeadersString(result.headers))
-            WPNLogger.verbose(responseBody)
+            WPNLogger.verbose(decryptedResponse)
+            if (decryptedResponse !== responseBody) {
+                WPNLogger.verbose("ENCRYPTED RESPONSE: " + responseBody)
+            }
         }
 
         // parse the response
-        let response = JSON.parse(responseBody, (key: string, value: any) => {
+        const response = JSON.parse(decryptedResponse, (key: string, value: any) => {
 
             // TODO: resolve nested date fields
             if (endpoint.responseConfig?.dateFields?.includes(key)) {
@@ -145,6 +173,23 @@ export abstract class WPNNetworkingBase {
         return response
     }
 
+    private async encryptRequest<T>(body: string, endpoint: WPNEndpoint<T>): Promise<EncryptorResult> {
+        
+        const encryptor = this.getEncryptor(endpoint);
+        if (!encryptor) {
+            return { body: body, header: undefined, decryptor: async (data: string) => data }
+        }
+        const encrypted = await encryptor.encryptRequest(body);
+        let header: WPNAuthToken = undefined;
+        // If the endpoint is unsigned, use the header from the encrypted response
+        if (endpoint.type === WPNEndpointType.UNSIGNED) {
+            header = encrypted.header;
+        }
+        return { body: JSON.stringify(encrypted.cryptogram), header: header, decryptor: async responseBody => await encrypted.decryptor.decryptResponse(JSON.parse(responseBody)) };
+    }
+
+    protected abstract getEncryptor<T>(endpoint: WPNEndpoint<T>): WPNEncryptor | undefined;
+
     // Helper to convert headers to string for logging
     private getHeadersString(headers: Headers | undefined): string {
         let result = "Headers: {"
@@ -153,4 +198,25 @@ export abstract class WPNNetworkingBase {
         })
         return result + "}"
     }
+}
+
+interface EncryptorResult {
+    body: string;
+    header: WPNAuthToken;
+    decryptor: (responseBody: string) => Promise<string>;
+}
+
+
+export interface WPNEncryptor {
+    encryptRequest(body: string): Promise<WPNEncryptedRequestData>
+}
+
+export interface WPNDecryptor {
+    decryptResponse(cryptogram: any): Promise<string>;
+}
+
+export interface WPNEncryptedRequestData {
+    readonly cryptogram: any;
+    readonly header: WPNAuthToken;
+    readonly decryptor: WPNDecryptor;
 }

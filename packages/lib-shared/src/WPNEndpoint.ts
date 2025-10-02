@@ -34,9 +34,10 @@ export class WPNEndpoint<T> {
      * This is not necessarily the same as the path, but rather an identifier of the endpoint.
      * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
+     * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
      */
-    static signed<U>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, responseConfig, uriId, undefined)
+    static signed<U>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
+        return new WPNEndpoint<U>(path, returnsData, responseConfig, uriId, undefined, e2eeConfig)
     }
 
     /**
@@ -46,9 +47,10 @@ export class WPNEndpoint<T> {
      * @param tokenName Name of the token used for authentication, for example "myAuthToken".
      * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
+     * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
      */
-    static signedWithToken<U>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, tokenName)
+    static signedWithToken<U>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
+        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, tokenName, e2eeConfig)
     }
 
     /**
@@ -57,15 +59,17 @@ export class WPNEndpoint<T> {
      * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
      * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
+     * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
      */
-    static unsigned<U>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, undefined)
+    static unsigned<U>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
+        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, undefined, e2eeConfig)
     }
 
     readonly method = "POST" // HTTP method for the request. We currently support only POST method.
     readonly path: string // Endpoint path, starting with a slash, for example "/pa/myendpoint"
     readonly returnsData: boolean // True if the endpoint is expected to return data in the response.
-    readonly responseConfig?: WPNResponseConfiguration // Optional configuration for the response parsing.
+    readonly e2eeConfig: WPNE2EEConfiguration // Configuration for end-to-end encryption.
+    readonly responseConfig?: WPNResponseConfig // Optional configuration for the response parsing.
     readonly uriId?: string // URI ID used for signature calculation. Only for signed endpoints.
     readonly tokenName?: string // Name of the token used for authentication. Only for signed-with-token endpoints.
 
@@ -80,18 +84,29 @@ export class WPNEndpoint<T> {
         }
     }
 
-    private constructor(path: string, returnsData: boolean, responseConfig?: WPNResponseConfiguration, uriId?: string, tokenName?: string) {
+    private constructor(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, uriId?: string, tokenName?: string, e2eeConfig: WPNE2EEConfiguration = WPNE2EEConfiguration.NOT_ENCRYPTED) {
         // Ensure that path starts with a slash
         this.path = (path.startsWith("/") ? path : ("/" + path))
         this.returnsData = returnsData
         this.responseConfig = responseConfig
         this.uriId = uriId
         this.tokenName = tokenName
+        this.e2eeConfig = e2eeConfig
     }
 }
 
+/** Configuration for end-to-end encryption. */
+export enum WPNE2EEConfiguration {
+    /** Endpoint is encrypted with the application scope. */
+    APPLICATION_SCOPE,
+    /** Endpoint is encrypted with the activation scope. */
+    ACTIVATION_SCOPE,
+    /** Endpoint is not encrypted. */
+    NOT_ENCRYPTED
+}
+
 /** Configuration for response parsing. */
-export class WPNResponseConfiguration {
+export class WPNResponseConfig {
     /** List of fields in the response that should be parsed as dates. */
     readonly dateFields?: string[]
 
