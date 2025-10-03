@@ -1,8 +1,14 @@
+/**
+ * Copyright Wultra s.r.o.
+ *
+ * This source code is licensed under the Apache License, Version 2.0 license
+ * found in the LICENSE file in the root directory of this source tree.
+ */
 
 import { WPNE2EEConfiguration, WPNEndpoint, WPNEndpointType } from '../../lib-shared/src/WPNEndpoint';
 import { WPNException } from '../../lib-shared/src/WPNException';
-import { WPNAuthToken, WPNEncryptor, WPNNetworkingBase, WPNRequestProcessor } from '../../lib-shared/src/WPNNetworkingBase';
-import { PowerAuth, PowerAuthAuthentication, PowerAuthEncryptor } from 'react-native-powerauth-mobile-sdk';
+import { WPNEncryptor, WPNNetworkingBase, WPNRequestProcessor } from '../../lib-shared/src/WPNNetworkingBase';
+import { PowerAuth, PowerAuthAuthentication } from 'react-native-powerauth-mobile-sdk';
 
 /** Networking service for dispatching PowerAuth signed requests. */
 export class WPNNetworking extends WPNNetworkingBase {
