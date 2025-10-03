@@ -26,6 +26,8 @@ export class WPNEndpoint<T> {
      * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
      * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
+     *
+     * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
     static signed<U>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
         return new WPNEndpoint<U>(path, returnsData, responseConfig, uriId, undefined, e2eeConfig)
@@ -39,6 +41,8 @@ export class WPNEndpoint<T> {
      * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
      * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
+     * 
+     * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
     static signedWithToken<U>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
         return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, tokenName, e2eeConfig)
@@ -51,6 +55,8 @@ export class WPNEndpoint<T> {
      * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
      * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
+     * 
+     * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
     static unsigned<U>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
         return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, undefined, e2eeConfig)

@@ -1,5 +1,5 @@
 {
-  "name": "react-native-powerauth-networking",
+  "name": "cordova-powerauth-networking",
   "version": "1.0.0",
   "description": "A high-level networking SDK for PowerAuth-based endpoints.",
   "main": "lib/index.js",
@@ -10,15 +10,16 @@
     "LICENSE",
     "lib/index.js",
     "lib/index.d.ts",
+    "plugin.xml",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "prepack": "pushd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-rn/ && popd",
+    "prepack": "pushd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-cordova/ && popd",
     "postpack": "rm README.md LICENSE"
   },
   "keywords": [
-    "react-native",
+    "cordova",
     "powerauth",
     "ios",
     "android"
@@ -31,18 +32,8 @@
   "license": "Apache-2.0",
   "homepage": "https://www.wultra.com/mobile-security-suite",
   "devDependencies": {
-    "@types/react": "^18.2.44",
-    "react": "18.2.0",
-    "react-native": "0.74.5",
     "typescript": "^5.2.2",
-    "react-native-powerauth-mobile-sdk": "^4.1.0"
-  },
-  "resolutions": {
-    "@types/react": "^18.2.44"
-  },
-  "peerDependencies": {
-    "react": "*",
-    "react-native": "*",
-    "react-native-powerauth-mobile-sdk": "^4.1.0"
+    "cordova-powerauth-mobile-sdk": "^4.1.0",
+    "cordova": "^12.0.0"
   }
 }
