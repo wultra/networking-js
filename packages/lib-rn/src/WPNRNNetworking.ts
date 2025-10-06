@@ -21,7 +21,7 @@ export class WPNNetworking extends WPNNetworkingBase {
      * If not provided, the base URL is taken from PowerAuth configuration.
      * @throws WPNException when baseURL is not provided and it cannot be taken from PowerAuth configuration.
      */
-    constructor(pa: PowerAuth, baseURL: string | undefined) {
+    constructor(pa: PowerAuth, baseURL: string | undefined = undefined) {
         const url = baseURL || pa.configuration?.baseEndpointUrl;
         if (!url) {
             throw new WPNException("WPNNetworking: Base URL not provided.");
