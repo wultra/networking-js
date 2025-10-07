@@ -15,7 +15,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "prepack": "pushd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-cordova/ && popd",
+    "prepack": "cd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-cordova/",
     "postpack": "rm README.md LICENSE"
   },
   "keywords": [

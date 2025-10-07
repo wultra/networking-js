@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "prepack": "pushd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-rn/ && popd",
+    "prepack": "cd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-rn/",
     "postpack": "rm README.md LICENSE"
   },
   "keywords": [
