@@ -1,0 +1,47 @@
+{
+    "metadata": {
+        "purpose": "This file is used as a definition file for the prepare-release script.",
+        "info": "It defines files that contains version number that should be updated during the release preparation.",
+        "customBuildscript": "If needed, in the library object, set \"buildscript\": \"your-custom-build-command\" command if your build command is different than 'npm i && npm run build'"
+    },
+    "library": {
+        "name": "networking-js",
+        "type": "npm",
+        "artifacts": [
+            "packages/lib-cordova/cordova-powerauth-networking-%VERSION%.tgz",
+            "packages/lib-rn/react-native-powerauth-networking-%VERSION%.tgz"
+        ]
+    },
+    "files": [
+        {
+            "description": "Cordova package definition file.",
+            "path": "packages/lib-cordova/package.json",
+            "type": "version_replace",
+            "match": "\"version\": \"%VERSION%\",\n"
+        },
+        {
+            "description": "Cordova plugin.xml file.",
+            "path": "packages/lib-cordova/plugin.xml",
+            "type": "version_replace",
+            "match": "id=\"cordova-powerauth-networking\" version=\"%VERSION%\""
+        },
+        {
+            "description": "React Native package definition file.",
+            "path": "packages/lib-rn/package.json",
+            "type": "version_replace",
+            "match": "\"version\": \"%VERSION%\",\n"
+        },
+        {
+            "description": "SDK version in the source code.",
+            "path": "packages/lib-shared/src/WPNSDKVersion.ts",
+            "type": "version_replace",
+            "match": "WPN_SDK_VERSION = \"%VERSION%\"\n"
+        },
+        {
+            "description": "Changelog for the wultra documentation.",
+            "path": "README.md",
+            "type": "version_verify",
+            "match": "### %VERSION%"
+        }
+    ]
+}

@@ -5,6 +5,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "rollup -c rollup.config.js -w",
     "packAll": "yarn workspace cordova-powerauth-networking pack && yarn workspace react-native-powerauth-networking pack"
   },
   "devDependencies": {

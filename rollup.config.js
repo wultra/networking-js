@@ -15,7 +15,12 @@ const libRNOutput = `${libRNDir}/lib`
 
 // Generate both the JavaScript bundle and the TypeScript declaration file
 export default [
-  //Cordova Library
+
+  /**************
+   * CORDOVA
+   **************/
+
+  // Cordova Library
   {
     input: libCordovaInput,
     output: {
@@ -49,6 +54,10 @@ export default [
     },
     plugins: [dts()],
   },
+
+  /**************
+   * REACT NATIVE
+   **************/
 
   // React Native Library
   {
