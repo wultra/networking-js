@@ -7,4 +7,4 @@
 
 /** Version of the SDK (matches the package.json version) */
 // NOTE: DO NOT EDIT! This line is automatically updated during the release process.
-export const WPN_SDK_VERSION = "0.0.1"
+export const WPN_SDK_VERSION = "1.0.0"

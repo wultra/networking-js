@@ -32,6 +32,12 @@
             "match": "\"version\": \"%VERSION%\",\n"
         },
         {
+            "description": "root package definition file.",
+            "path": "package.json",
+            "type": "version_replace",
+            "match": "\"version\": \"%VERSION%\",\n"
+        },
+        {
             "description": "SDK version in the source code.",
             "path": "packages/lib-shared/src/WPNSDKVersion.ts",
             "type": "version_replace",
