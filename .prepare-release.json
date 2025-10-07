@@ -6,7 +6,7 @@
     },
     "library": {
         "name": "networking-js",
-        "type": "npm",
+        "type": "yarn",
         "artifacts": [
             "packages/lib-cordova/cordova-powerauth-networking-%VERSION%.tgz",
             "packages/lib-rn/react-native-powerauth-networking-%VERSION%.tgz"
