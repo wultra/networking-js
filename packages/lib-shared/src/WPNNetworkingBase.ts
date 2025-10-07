@@ -54,13 +54,13 @@ export abstract class WPNNetworkingBase {
         }
     }
 
-    protected async callInternal<T>(
-        requestData: any, 
-        endpoint: WPNEndpoint<T>,
+    protected async callInternal<TRequest, TResponse>(
+        requestData: TRequest, 
+        endpoint: WPNEndpoint<TRequest, TResponse>,
         sign: (body: string) => Promise<WPNAuthToken>,
         signWithToken: () => Promise<WPNAuthToken>,
         requestProcessor?: WPNRequestProcessor
-    ): Promise<WPNResponse<T>> {
+    ): Promise<WPNResponse<TResponse>> {
 
         // prepare URL, body and headers
         const url = this.baseURL + endpoint.path
@@ -147,7 +147,7 @@ export abstract class WPNNetworkingBase {
                 return new Date(value)
             }
             return value
-        }) as WPNResponse<T>
+        }) as WPNResponse<TResponse>
 
         if (response.status == "ERROR") {
             if (response.responseObject == undefined) {
@@ -164,7 +164,7 @@ export abstract class WPNNetworkingBase {
         return response
     }
 
-    private async encryptRequest<T>(body: string, endpoint: WPNEndpoint<T>): Promise<EncryptorResult> {
+    private async encryptRequest<TRequest, TResponse>(body: string, endpoint: WPNEndpoint<TRequest, TResponse>): Promise<EncryptorResult> {
         
         const encryptor = this.getEncryptor(endpoint);
         if (!encryptor) {
@@ -179,7 +179,7 @@ export abstract class WPNNetworkingBase {
         return { body: JSON.stringify(encrypted.cryptogram), header: header, decryptor: async responseBody => await encrypted.decryptor.decryptResponse(JSON.parse(responseBody)) };
     }
 
-    protected abstract getEncryptor<T>(endpoint: WPNEndpoint<T>): WPNEncryptor | undefined;
+    protected abstract getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): WPNEncryptor | undefined;
 
     // Helper to convert headers to string for logging
     private getHeadersString(headers: Headers | undefined): string {

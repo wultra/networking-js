@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" id="cordova-powerauth-networking" version="1.0.0">
     <name>PowerAuth Networking Cordova Plugin</name>
-    <description>"A high-level networking SDK for PowerAuth-based endpoints.</description>
+    <description>A high-level networking SDK for PowerAuth-based endpoints.</description>
     <license>Apache 2.0</license>
     <keywords>cordova,powerauth,networking</keywords>
     <js-module name="WultraPowerAuthNetworking" src="lib/index.js">
@@ -13,6 +13,7 @@
         <engine name="cordova-android" version=">=12.0.0" />
         <engine name="cordova-ios" version=">=7.0.0" />
     </engines>
+    <dependency id="cordova-powerauth-mobile-sdk" version="4.1.0" />
     <platform name="android" kotlin="1.9.22">
     </platform>
     <platform name="ios">

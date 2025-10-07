@@ -7,6 +7,7 @@
 
 import { WPNE2EEConfiguration, WPNEndpoint, WPNEndpointType } from '../../lib-shared/src/WPNEndpoint';
 import { WPNException } from '../../lib-shared/src/WPNException';
+import { WPNResponse } from '../../lib-shared/src/WPNResponse';
 import { WPNEncryptor, WPNNetworkingBase, WPNRequestProcessor } from '../../lib-shared/src/WPNNetworkingBase';
 import "cordova-powerauth-mobile-sdk";
 
@@ -40,12 +41,12 @@ export class WPNNetworking extends WPNNetworkingBase {
      * @throws WPNException when an internal error occurs
      * @throws WPNKnownRestApiError when a known REST API error is returned from the server
      */
-    call<T>(
-        endpoint: WPNEndpoint<T>,
-        requestData: any, 
+    call<TRequest, TResponse>(
+        endpoint: WPNEndpoint<TRequest, TResponse>,
+        requestData: TRequest, 
         authentication: PowerAuthAuthentication | undefined,
-        requestProcessor?: WPNRequestProcessor
-    ) {
+        requestProcessor: WPNRequestProcessor | undefined = undefined
+    ): Promise<WPNResponse<TResponse>> {
         // Ensure that authentication object is provided for signed requests
         if (!authentication && endpoint.type !== WPNEndpointType.UNSIGNED) {
             throw new WPNException("WPNNetworking: Authentication object not provided for signed request.");
@@ -62,7 +63,7 @@ export class WPNNetworking extends WPNNetworkingBase {
         );
     }
 
-    getEncryptor<T>(endpoint: WPNEndpoint<T>): WPNEncryptor | undefined {
+    getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): WPNEncryptor | undefined {
         if (endpoint.e2eeConfig === WPNE2EEConfiguration.NOT_ENCRYPTED) {
             return undefined;
         } else if (endpoint.e2eeConfig === WPNE2EEConfiguration.ACTIVATION_SCOPE) {

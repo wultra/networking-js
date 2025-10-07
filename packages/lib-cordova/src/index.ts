@@ -24,5 +24,4 @@ export { WPNNetworking } from "./WPNCordovaNetworking"
 export { WPNRequestProcessor } from "../../lib-shared/src/WPNNetworkingBase"
 
 // CORDOVA SPECIFIC IMPLEMENTATIONS
-
 WPNPlatformUtils.provider = new WPNCordovaPlatformUtilsProvider()

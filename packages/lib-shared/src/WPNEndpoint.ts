@@ -15,7 +15,7 @@
  * 
  * @typeParam T Type of the expected response data. Use `void` if no data is expected.
  */
-export class WPNEndpoint<T> {
+export class WPNEndpoint<TRequest, TResponse> {
 
     /**
      * Create signed endpoint that requires PowerAuth signature.
@@ -29,8 +29,8 @@ export class WPNEndpoint<T> {
      *
      * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
-    static signed<U>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, responseConfig, uriId, undefined, e2eeConfig)
+    static signed<TRequest, TResponse>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
+        return new WPNEndpoint<TRequest, TResponse>(path, returnsData, responseConfig, uriId, undefined, e2eeConfig)
     }
 
     /**
@@ -44,8 +44,8 @@ export class WPNEndpoint<T> {
      * 
      * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
-    static signedWithToken<U>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, tokenName, e2eeConfig)
+    static signedWithToken<TRequest, TResponse>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
+        return new WPNEndpoint<TRequest, TResponse>(path, returnsData, responseConfig, undefined, tokenName, e2eeConfig)
     }
 
     /**
@@ -58,8 +58,8 @@ export class WPNEndpoint<T> {
      * 
      * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
-    static unsigned<U>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<U> {
-        return new WPNEndpoint<U>(path, returnsData, responseConfig, undefined, undefined, e2eeConfig)
+    static unsigned<TRequest, TResponse>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
+        return new WPNEndpoint<TRequest, TResponse>(path, returnsData, responseConfig, undefined, undefined, e2eeConfig)
     }
 
     readonly method = "POST" // HTTP method for the request. We currently support only POST method.
