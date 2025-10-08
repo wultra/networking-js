@@ -8,8 +8,8 @@
         "name": "networking-js",
         "type": "yarn",
         "artifacts": [
-            "packages/lib-cordova/cordova-powerauth-networking-%VERSION%.tgz",
-            "packages/lib-rn/react-native-powerauth-networking-%VERSION%.tgz"
+            "packages/lib-cordova/cordova-powerauth-networking-v%VERSION%.tgz",
+            "packages/lib-rn/react-native-powerauth-networking-v%VERSION%.tgz"
         ],
         "buildscript": "yarn install && yarn packAll"
     },
