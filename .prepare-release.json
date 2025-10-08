@@ -10,7 +10,8 @@
         "artifacts": [
             "packages/lib-cordova/cordova-powerauth-networking-%VERSION%.tgz",
             "packages/lib-rn/react-native-powerauth-networking-%VERSION%.tgz"
-        ]
+        ],
+        "buildscript": "yarn install && yarn packAll"
     },
     "files": [
         {
