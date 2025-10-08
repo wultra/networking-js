@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "es6",
+    "lib": ["es6"],
+    "strict": true,
+    "declaration": false,
+    "sourceMap": true,
+    "removeComments": false, // Keep comments for better documentation
+    "noImplicitAny": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true
+  }
+}

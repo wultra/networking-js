@@ -1,0 +1,37 @@
+{
+  "name": "cordova-powerauth-networking",
+  "version": "1.0.0",
+  "description": "A high-level networking SDK for PowerAuth-based endpoints.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "type": "module",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "lib/index.js",
+    "lib/index.d.ts",
+    "plugin.xml"
+  ],
+  "scripts": {
+    "prepack": "cd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-cordova/",
+    "postpack": "rm README.md LICENSE"
+  },
+  "keywords": [
+    "cordova",
+    "powerauth",
+    "ios",
+    "android"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wultra/networking-js.git"
+  },
+  "author": "Wultra <support@wultra.com> (https://wultra.com)",
+  "license": "Apache-2.0",
+  "homepage": "https://www.wultra.com/mobile-security-suite",
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "cordova-powerauth-mobile-sdk": "^4.1.0",
+    "cordova": "^12.0.0"
+  }
+}

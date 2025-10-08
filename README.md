@@ -1,10 +1,7 @@
 # PowerAuth Networking JS SDK
 
-> [!WARNING]
-> This library is __"WORK IN PROGRESS"__
-
 <!-- begin remove -->
-<p align="center"><img src="docs/intro.jpg" alt="Wultra Digital Onboarding for Apple Platforms" width="100%" /></p>
+<p align="center"><img src="docs/intro.jpg" alt="Wultra Networking JS SDK" width="100%" /></p>
 
 <!--
 [![npmrn](https://img.shields.io/npm/v/react-native-powerauth-networking?label=npm%3Areact-native)](https://www.npmjs.com/package/react-native-powerauth-networking) 
@@ -35,10 +32,6 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Initialization and Configuration](#initialization-and-configuration)
 - [Endpoint Definition](#endpoint-definition)
 - [Creating an HTTP request](#creating-an-http-request)
-- [Raw Response Observer](#raw-response-observer)
-- [Parallel Requests](#parallel-requests)
-- [SSL validation](#ssl-validation)
-- [JSON encoder and decoder](#json-encoder-and-decoder)
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
@@ -58,7 +51,7 @@ The PowerAuth JS SDK is a required peer dependency of the SDK. You must install 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
 - For **React Native**, install both `react-native-powerauth-mobile-sdk` and `react-native-powerauth-networking` using `npm` or `yarn`.
-- For **Cordova**, add both `cordova-powerauth-mobile-sdk` and `cordova-powerauth-networking` using the `cordova plugin add` command.
+- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The `cordova-powerauth-mobile-sdk` will be automatically installed as a dependency.
 
 ### Compatible PowerAuth Mobile JS SDK Versions
 
@@ -104,10 +97,8 @@ The library is available for the following __Apache Cordova (>=12.0.0)__ platfor
 
 #### How To Install
 
-#### 1. Install plugins via the Cordova plugin installer
+#### 1. Install plugin via the Cordova plugin installer
 ```sh
-# if not added yet, add powerauth mobile SDK first (compatible versions are at the top of this document)
-cordova plugin add cordova-powerauth-mobile-sdk
 cordova plugin add cordova-powerauth-networking
 ```
 
@@ -122,7 +113,7 @@ pod install
 
 ## Open Source Code
 
-The code of the library is open source and you can freely browse it in our GitHub at [https://github.com/wultra/networking-js](https://github.com/wultra/networking-js/#docucheck-keep-link)
+The code of the library is open source, and you can freely browse it in our GitHub at [https://github.com/wultra/networking-js](https://github.com/wultra/networking-js/#docucheck-keep-link)
 
 ## Initialization and Configuration
 
@@ -138,20 +129,10 @@ You can create as many instances of the class as you need for your usage.
 
 Example:
 
-TODO: !! rewrite to TS
-```swift
-const networking = WPNNetworkingService(
-    powerAuth: myPowerAuthInstance, // configured PowerAuthSDK instance
-    config: WPNConfig(
-        baseUrl: "https://sandbox.company.com/my-service", // URL to my PowerAuth based service
-        sslValidation: .default, // use default SSL error handling (more in SSL validation docs section)
-        timeoutIntervalForRequest: 10, // give 10 seconds for the server to respond
-        userAgent: .libraryDefault // use library default HTTP User-Agent header
-        
-    ), 
-    serviceName: "MyProjectNetworkingService", // for better debugging
-    acceptLanguage: "en" // more info in "Language Configuration" docs section
-)
+```typescript
+let pa: PowerAuth = ... // your PowerAuthSDK instance
+let baseURL = "https://my.backend.com/api/v3" // whene undefined, powerauth url will be used
+const networking = new WPNNetworking(pa, baseURL)
 ```
 
 ## Endpoint Definition
@@ -160,19 +141,18 @@ Each endpoint you will target with your project must be defined for the service 
 
 ### End To End Encryption
 
-If the endpoint is end-to-end encrypted, you need to configure it in the init. Default initializers are set to `NOT_ENCRYPTED`. 
+If the endpoint is end-to-end encrypted, you need to configure it accordingly. Default values are set to `NOT_ENCRYPTED`.
 
 Possible values are:
-TODO: !! rewrite to TS
-```swift
-/// Endpoint configuration for end to end encryption.
-public enum WPNE2EEConfiguration {
-    /// Endpoint is encrypted with the application scope.
-    case applicationScope
-    /// Endpoint is encrypted with the activation scope.
-    case activationScope
-    /// Endpoint is not encrypted.
-    case notEncrypted
+```typescript
+/** Configuration for end-to-end encryption. */
+export enum WPNE2EEConfiguration {
+    /** Endpoint is encrypted with the application scope. */
+    APPLICATION_SCOPE,
+    /** Endpoint is encrypted with the activation scope. */
+    ACTIVATION_SCOPE,
+    /** Endpoint is not encrypted. */
+    NOT_ENCRYPTED
 }
 ```
 
@@ -180,30 +160,26 @@ public enum WPNE2EEConfiguration {
 Whether an endpoint is encrypted or not is based on its backend definition.
 <!-- end -->
 
-### Signed endpoint `WPNEndpointSigned`
+### Signed endpoint `WPNEndpoint.signed()`
 
 For endpoints that are __signed__ by a PowerAuth signature and can be end-to-end encrypted.
 
 Example:
-TODO: !! rewrite to TS
-```swift
-typealias MySignedEndpointType = WPNEndpointSigned<WPNRequest<MyEndpointDataRequest>, WPNResponse<MyEndpointDataResponse>>
-var mySignedEndpoint: MySignedEndpointType { WPNEndpointSigned(endpointURLPath: "/additional/path/to/the/signed/endpoint", uriId: "endpoint/identifier", e2ee: .notEncrypted) }
-// uriId is defined by the endpoint issuer - ask your server developer/provider
-
+```typescript
+// signed endpoint with expected response data, not response config and end-to-end encryption disabled
+const mySignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signed("/path/to/the/signed/endpoint", "endpoint/identifier", undefined, WPNE2EEConfiguration.NOT_ENCRYPTED)
 ```
 
-### Signed endpoint with Token `WPNEndpointSignedWithToken`
+### Signed endpoint with Token `WPNEndpoint.signedWithToken()`
 
 For endpoints that are __signed by token__ by PowerAuth signature and can be end-to-end encrypted.
 
 More info for token-based authentication [can be found here](https://github.com/wultra/powerauth-mobile-sdk/blob/develop/docs/PowerAuth-SDK-for-iOS.md#token-based-authentication)
 
 Example:
-TODO: !! rewrite to TS
-```swift
-typealias MyTokenEndpointType = WPNEndpointSignedWithToken<WPNRequest<MyEndpointDataRequest>, WPNResponse<MyEndpointDataResponse>>
-var myTokenEndpoint: MyTokenEndpointType { WPNEndpointSignedWithToken(endpointURLPath: "/additional/path/to/the/token/signed/endpoint", tokenName: "MyToken", e2ee: .notEncrypted) }
+```typescript
+// signed endpoint with token-based authentication with expected response data, not response config and end-to-end encryption disabled
+const myTokenSignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signedWithToken("/path/to/the/signed/endpoint", "tokenName", undefined, WPNE2EEConfiguration.NOT_ENCRYPTED)
 
 // tokenName is the name of the token as stored in the PowerAuthSDK
 // more info can be found in the PowerAuthSDK documentation
@@ -211,179 +187,96 @@ var myTokenEndpoint: MyTokenEndpointType { WPNEndpointSignedWithToken(endpointUR
 
 ```
 
-### Basic endpoint (not signed) `WPNEndpointBasic`
+### Basic endpoint (not signed) `WPNEndpoint.unsigned`
 
 For endpoints that are __not signed__ by PowerAuth signature but can be end-to-end encrypted.
 
 Example:
-TODO: !! rewrite to TS
-```swift
-typealias MyBasicEndpointType = WPNEndpointBasic<WPNRequest<MyEndpointDataRequest>, WPNResponse<MyEndpointDataResponse>>
-var myBasicEndpoint: MyBasicEndpointType { WPNEndpointBasic(endpointURLPath: "/additional/path/to/the/basic/endpoint", e2ee: .notEncrypted) }
-
+```typescript
+// unsigned endpoint with expected response data, not response config and end-to-end encryption set to application scope
+const myTokenSignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.unsigned("/path/to/the/signed/endpoint", undefined, WPNE2EEConfiguration.APPLICATION_SCOPE)
 ```
 
 ## Creating an HTTP request
 
-TODO: !! update with actual API
+To create an HTTP request to your endpoint, you need to call the `WPNNetworking.call` method with the following parameters:
 
-To create an HTTP request to your endpoint, you need to call the `WPNNetworking.post` method with the following parameters:
-
-- `data` - with the payload of your request
-- `auth` - `PowerAuthAuthentication` instance that will sign the request  
-  - this parameter is missing for the basic endpoint 
 - `endpoint` - an endpoint that will be called
-- `headers` - custom HTTP headers, `nil` by default
-- `timeoutInterval` - timeout interval, `nil` by default. When `nil`, the default configured in `WPNConfig` will be used
-- `progressCallback` - callback with percentage progress (values between 0 and 1)
-- `completionQueue` - queue that the completion will be called on (main queue by default)
-- `completion` - result completion
+- `requestData` - request data that will be sent to the server
+- `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
+  - pass `undefined` for the basic `unsigned` endpoint
+- `requestProcessor` - optional request processor that can modify the request before it is sent to the server
 
+The method is asynchronous and returns a `Promise` with the response or an error.
 
 Example:
-TODO: !! rewrite to TS
-```swift
+```typescript
 // payload we will send to the server
-struct MyRequestPayload {
-    let userID: String
+interface MyRequest {
+    userID: string
 }
 
 // response of the server
-struct MyResponse {
-    let name: String
-    let email: String
+interface MyResponse {
+    name: string
+    email: string
 }
 
 // endpoint configuration
-typealias MyEndpointType = WPNEndpointSigned<WPNRequest<MyRequestPayload>, WPNResponse<MyResponse>>
-var endpoint: MyEndpointType { WPNEndpointSigned(endpointURLPath: "/path/to/myendpoint", uriId: "myendpoint/identifier") }
+const endpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signed("/path/to/the/signed/endpoint", "endpoint/identifier", undefined, WPNE2EEConfiguration.ACTIVATION_SCOPE)
 
 // Authentication (for example purposes) expect user PIN 1111
-let auth = PowerAuthAuthentication.possessionWithPassword("1111")
+const auth = PowerAuthAuthentication.password("1111")
             
 // WPNNetworkingService instance call
-networking.post(
-    // create request data
-    data: MyEndpointType.RequestData(.init(userID: "12345")),
+const response = await networking.call(
     // specify endpoint
-    to: endpoint,
-    // custom HTTP headers
-    with: ["MyCustomHeader": "Value"],
-    // only wait 10 seconds at max
-    timeoutInterval: 10,
-    // handle response or error
-    completion: { result, error in
-        if let data = result?.responseObject {
-            // we have data
-        } else {
-            // handle error or empty response
-        }
-    }
+    endpoint,
+    // specify request data
+    { userID: "12345" },
+    // specify authentication
+    auth
 )
 
-```
-
-We use systems `URLSession` under the hood.
-
-## Raw Response Observer
-
-All responses can be observed with `WPNResponseDelegate` in `WPNNetworkingService.responseDelegate`.
-
-An example implementation of the delegate:
-
-```swift
-class MyResponseDelegateLogger: WPNResponseDelegate {
-    
-    func responseReceived(from url: URL, statusCode: Int?, body: Data) {
-        print("Response received from \(url) with status code \(statusCode) and data:")
-        print(String(data: body, encoding: .utf8) ?? "")
-    }
-    
-    // for endpoints that are end-to-end encrypted
-    func encryptedResponseReceived(from url: URL, statusCode: Int?, body: Data, decrypted: Data) {
-        print("Encrypted response received from \(url) with status code \(statusCode) and: ")
-        print("    Raw data:")
-        print(String(data: body, encoding: .utf8) ?? "")
-        print("    Decrypted data:")
-        print(String(data: decrypted, encoding: .utf8) ?? "")
-    }
+if (response.status == "OK" && response.responseObject) {
+    // success, use response.responseObject
+    console.log(`User name is ${response.responseObject.name} and email is ${response.responseObject.email}`)
+} else {
+    // error, use response.error
+    console.error(`Error: ${response.error}`)
 }
+
 ```
 
-## Parallel Requests
+We use `fetch` under the hood.
 
-By default, the SDK is serializing all signed requests. This means that the requests signed with the PowerAuthSDK are put into the queue and executed one by one (meaning that the HTTP request is not made until the previous one is finished). Other requests will be parallel.
+## Server Errors
 
-This behavior can be changed via `WPNNetworkingService.concurrencyStrategy` with the following possible values:
+When a server returns an error, the `WPNResponse` object will contain the error information in the `responseError` property. The `status` property will be set to `"ERROR"`.
 
-- `serialSigned` - Default behavior. Only requests that need a PowerAuth signature will be put into the serial queue that is shared with the `PowerAuthSDK` instance to ensure all signed requests are in proper order.
-- `concurrentAll` - All requests will be put into the concurrent queue. This behavior is not recommended unless you know exactly why you want this.
+The `responseError` object will contain a code and a message that can be used to identify the error.
 
-<!-- begin box info -->
-More about this topic can be found in the [PowerAuth documentation](https://developers.wultra.com/components/powerauth-mobile-sdk/develop/documentation/PowerAuth-SDK-for-iOS#request-synchronization).
-<!-- end -->
+This is a known server codes:
 
-## JSON encoder and decoder
-
-SDK uses `JSONEncoder` and `JSONDecoder` with `iso8601` date strategies by default.
-
-If the default does not suit your needs, you can set up your own decoder/encoder instances to the `jsonEncoder` and `jsonDecoder` properties in the `WPNNetworkingService` that will be used for all outbound and inbound traffic.
-
-For more info about the JSON encoding and decoding, visit official [Apple documentation](https://developer.apple.com/documentation/foundation/archives_and_serialization/using_json_with_custom_types).
-
-## SSL validation
-
-The SDK uses default system handling of the SSL errors. To be able to ignore SSL errors (for example when your test server does not have a valid SSL certificate) or implement your own SSL pinning, you can configure `WPNConfig.sslValidation` property to get your desired behavior.
-
-Possible values are:
-
-- `default` - Uses default URLSession handling.
-- `noValidation` - Trust HTTPS connections with invalid certificates.
-- `sslPinning(_ provider: WPNPinningProvider)` - Validates the server certificate with your own logic.
-
-## Error Handling
-
-Every error produced by this library is of a `WPNError` type. This error contains the following information:
-
-- `reason` - A specific reason, why the error happened. For more information see [WPNErrorReason chapter](#wpnerrorreason).
-- `nestedError` - Original exception/error (if available) that caused this error.
-- `httpStatusCode` - If the error is a networking error, this property will provide the HTTP status code of the error.
-- `httpUrlResponse` - If the error is a networking error, this will hold the original HTTP response that was received from the backend.
-- `restApiError` - If the error is a "well-known" API error, it will be filled here. For all available codes follow [the source code](https://github.com/wultra/networking-apple/blob/develop/Sources/WultraPowerauthNetworking/WPNBaseNetworkingObjects.swift#L130#docucheck-keep-link).
-- `networkIsNotReachable` - Convenience property, informs about a state where the network is unavailable (based on the error type).
-- `networkConnectionIsNotTrusted` - Convenience property, informs about a TLS error.
-- `powerAuthErrorResponse` - If the error was caused by the PowerAuth error, you can retrieve it here.
-- `powerAuthRestApiErrorCode` - If the error was caused by the PowerAuth error, the error code of the original error will be available here.
-
-### WPNErrorReason
-
-Each `WPNError` has a `reason` property for why the error was created. Such reason can be useful when you're creating for example a general error handling or reporting, or when you're debugging the code.
-
-#### General errors  
-
-| Option Name | Description |
-|---|---|
-|`unknown`|Unknown fallback reason|
-|`missingActivation`|PowerAuth instance is missing an activation.|
-
-#### Network errors
-
-| Option Name | Description |
-|---|---|
-|`network_unknown`|When unknown (usually logic error) happened during networking.|
-|`network_generic`|Network error that indicates a generic network issue (for example server internal error).|
-|`network_errorStatusCode`|HTTP response code was different than 200 (success).|
-|`network_invalidResponseObject`|An unexpected response from the server.|
-|`network_invalidRequestObject`|Request is not valid. Such an object is not sent to the server.|
-|`network_signError`|When the signing of the request failed.|
-|`network_timeOut`|Request timed out|
-|`network_noInternetConnection`|Not connected to the internet.|
-|`network_badServerResponse`|Bad (malformed) HTTP server response. Probably an unexpected HTTP server error.|
-|`network_sslError`|SSL error. For detailed information, see the attached error object when available.|
-
-#### Custom Errors
-
-`WPNErrorReason` is a struct that can be created by other libraries so the list above is not a final list of all possible errors. Such errors (in libraries developed by Wultra) will be presented in the dedicated documentation (for example Mobile Token SDK library).
+| Enum Value                  | Description                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| `GenericError`              | Generic error without specific reason                                       |
+| `AuthenticationFailure`     | General authentication failure (wrong password, wrong activation state, etc...) |
+| `InvalidRequest`            | Invalid request sent - missing request object in request                    |
+| `InvalidActivation`         | Activation is not valid (it is different from configured activation)        |
+| `InvalidApplication`        | Invalid application identifier is attempted for operation manipulation      |
+| `InvalidOperation`          | Invalid operation identifier is attempted for operation manipulation        |
+| `ActivationError`           | Error during activation                                                     |
+| `AuthenticationError`       | Error in case that PowerAuth authentication fails                           |
+| `SecureVaultError`          | Error during secure vault unlocking                                         |
+| `EncryptionError`           | Returned in case encryption or decryption fails                             |
+| `PushRegistrationFailed`    | Failed to register push notifications                                       |
+| `OperationAlreadyFinished`  | Operation is already finished                                               |
+| `OperationAlreadyFailed`    | Operation is already failed                                                 |
+| `OperationAlreadyCancelled` | Operation is cancelled                                                      |
+| `OperationExpired`          | Operation is expired                                                        |
+| `OperationFailed`           | Operation authorization failed                                              |
+| `ActivationCodeFailed`      | Unable to fetch activation code                                             |
 
 ## Language Configuration
 
@@ -399,36 +292,34 @@ The default value is always `en`. With other languages, we use values compliant 
 
 ## Logging
 
-You can set up logging for the library using the `WPNLogger` class.
+You can set up logging for the library using the `WPNLoggerConfig` class.
 
 ### Verbosity Level
 
-You can limit the amount of logged information via the `verboseLevel` property.
+You can limit the amount of logged information via the `verbosity` property.
 
 | Level                  | Description                                       |
 | ---------------------- | ------------------------------------------------- |
-| `off`                  | Silences all logs.                                |
-| `errors`               | Only errors will be logged.                       |
-| `warnings` _(default)_ | Errors and warnings will be logged.               |
-| `info`                 | Error, warning and info messages will be logged.  |
-| `debug`                | All messages will be logged.                      |
+| `NONE`                 | Silences all logs.                                |
+| `ERROR`                | Only errors will be logged.                       |
+| `WARN` _(default)_     | Errors and warnings will be logged.               |
+| `INFO`                 | Error, warning and info messages will be logged.  |
+| `VERBOSE`              | All but debug messages will be printed into the console. |
+| `DEBUG`                | All messages will be logged.                      |
 
-### Character limit
+### Log Time
 
-To prevent huge logs from being printed out, there is a default limit of 12,000 characters per log in place. You can change this via `WPNLogger.characterLimit`.
+You can enable or disable time logging via the `includeTime` property. The default value is `true`.
 
-### HTTP traffic logs
+### Logger Listener
 
-- You can turn on or off logging of HTTP requests and responses with the `WPNLogger.logHttpTraffic` property.
-- You can filter which headers will be logged with the `WPNLogger.httpHeadersToSkip` property.
-
-### Logger Delegate
-
-In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLogger.delegate`.
+In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLoggerConfig.listener`.
 
 ## Changelog
 
 ### 1.0.0
+
+- Initial release
 
 <!-- begin remove -->
 ## Web Documentation
