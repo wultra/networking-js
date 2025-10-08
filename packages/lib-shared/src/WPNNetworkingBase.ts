@@ -5,7 +5,7 @@
  * found in the LICENSE file in the root directory of this source tree.
  */
 
-import { WPNResponse } from "./WPNResponse"
+import { WPNResponse, WPNResponseError } from "./WPNResponse"
 import { WPNException } from "./WPNException"
 import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
 import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
@@ -152,10 +152,10 @@ export abstract class WPNNetworkingBase {
         }) as WPNResponse<TResponse>
 
         if (response.status == "ERROR") {
-            if (response.responseObject == undefined) {
+            if (response.responseObject === undefined) {
                 throw new WPNException("Error retrieved but no error data", { ...result })
             }
-            response.responseError = response.responseObject as any
+            response.responseError = response.responseObject as WPNResponseError
             response.responseObject = undefined
 
         }

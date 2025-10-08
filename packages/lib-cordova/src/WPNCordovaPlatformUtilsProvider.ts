@@ -7,6 +7,7 @@
 
 import { WPNPlatformUtilsProvider } from "../../lib-shared/src/WPNPlatformDependencies"
 import "cordova-powerauth-mobile-sdk"
+// @ts-ignore
 import { cordova } from "cordova"
 
 /** Cordova platform utils provider */

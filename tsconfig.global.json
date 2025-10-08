@@ -7,7 +7,7 @@
     "declaration": false,
     "sourceMap": true,
     "removeComments": false, // Keep comments for better documentation
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "moduleResolution": "node",
     "skipLibCheck": true
   }

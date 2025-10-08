@@ -77,7 +77,7 @@ export class WPNNetworking extends WPNNetworkingBase {
     }
 
     /** Get encryptor for the specified endpoint, if end-to-end encryption is enabled. */
-    getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): WPNEncryptor | undefined {
+    protected getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): WPNEncryptor | undefined {
         if (endpoint.e2eeConfig === WPNE2EEConfiguration.NOT_ENCRYPTED) {
             return undefined
         } else if (endpoint.e2eeConfig === WPNE2EEConfiguration.ACTIVATION_SCOPE) {
