@@ -12,7 +12,7 @@ import { WPN_SDK_VERSION } from "./WPNSDKVersion"
 /** Automatic values that will be used for User-Agent HTTP header. */
 export enum WPNUserAgent {
     /** 
-     * Default value provided by the libary. 
+     * Default value provided by the library. 
      * 
      * Example value (on an Apple device):
      * `PowerAuthNetworkingJS/1.0.0 com.yourcompany.yourappid/1.0.0 (Apple; iOS/18.2; iPhone16)`.

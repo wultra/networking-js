@@ -158,7 +158,7 @@ export abstract class WPNNetworkingBase {
 
         } else if (response.status == "OK" && endpoint.returnsData && response.responseObject == undefined) {
             // If the endpoint is expected to return data, but no data object is present, throw an exception
-            throw new WPNException("No data object retieved.", { ...result })
+            throw new WPNException("No data object retrieved.", { ...result })
         }
 
         return response

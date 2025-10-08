@@ -10,9 +10,7 @@
     "LICENSE",
     "lib/index.js",
     "lib/index.d.ts",
-    "plugin.xml",
-    "README.md",
-    "LICENSE"
+    "plugin.xml"
   ],
   "scripts": {
     "prepack": "cd ../.. && rollup -c rollup.config.js && cp README.md LICENSE packages/lib-cordova/",
