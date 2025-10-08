@@ -12,7 +12,7 @@ import { cordova } from "cordova"
 /** Cordova platform utils provider */
 export class WPNCordovaPlatformUtilsProvider implements WPNPlatformUtilsProvider {
     getPlatform() {
-        return cordova.platformId === "ios" ? "ios" : "android";
+        return cordova.platformId === "ios" ? "ios" : "android"
     }
 
     async getEnvironmentInfo() {

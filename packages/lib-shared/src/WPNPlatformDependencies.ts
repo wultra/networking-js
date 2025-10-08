@@ -19,11 +19,11 @@ export interface WPNPlatformUtilsProvider {
 }
 
 export interface WPNEnvironmentInfo {
-    systemName: string;
-    systemVersion: string;
-    applicationVersion?: string;
-    applicationIdentifier?: string;
-    deviceManufacturer: string;
-    deviceId: string;
-    sdkVersion: string;
+    systemName: string
+    systemVersion: string
+    applicationVersion?: string
+    applicationIdentifier?: string
+    deviceManufacturer: string
+    deviceId: string
+    sdkVersion: string
 }

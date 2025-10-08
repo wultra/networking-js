@@ -174,7 +174,7 @@ For endpoints that are __signed__ by a PowerAuth signature and can be end-to-end
 Example:
 ```typescript
 // signed endpoint with expected response data, not response config and end-to-end encryption disabled
-const mySignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signed("/path/to/the/signed/endpoint", "endpoint/identifier", true, undefined, WPNE2EEConfiguration.NOT_ENCRYPTED)
+const mySignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signed("/path/to/the/signed/endpoint", "endpoint/identifier", undefined, WPNE2EEConfiguration.NOT_ENCRYPTED)
 ```
 
 ### Signed endpoint with Token `WPNEndpoint.signedWithToken()`
@@ -186,7 +186,7 @@ More info for token-based authentication [can be found here](https://github.com/
 Example:
 ```typescript
 // signed endpoint with token-based authentication with expected response data, not response config and end-to-end encryption disabled
-const myTokenSignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signedWithToken("/path/to/the/signed/endpoint", "tokenName", true, undefined, WPNE2EEConfiguration.NOT_ENCRYPTED)
+const myTokenSignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signedWithToken("/path/to/the/signed/endpoint", "tokenName", undefined, WPNE2EEConfiguration.NOT_ENCRYPTED)
 
 // tokenName is the name of the token as stored in the PowerAuthSDK
 // more info can be found in the PowerAuthSDK documentation
@@ -201,7 +201,7 @@ For endpoints that are __not signed__ by PowerAuth signature but can be end-to-e
 Example:
 ```typescript
 // unsigned endpoint with expected response data, not response config and end-to-end encryption set to application scope
-const myTokenSignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.unsigned("/path/to/the/signed/endpoint", true, undefined, WPNE2EEConfiguration.APPLICATION_SCOPE)
+const myTokenSignedEndpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.unsigned("/path/to/the/signed/endpoint", undefined, WPNE2EEConfiguration.APPLICATION_SCOPE)
 ```
 
 ## Creating an HTTP request

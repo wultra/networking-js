@@ -23,14 +23,13 @@ export class WPNEndpoint<TRequest, TResponse> {
      * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
      * @param uriId URI ID used for signature calculation.
      * This is not necessarily the same as the path, but rather an identifier of the endpoint.
-     * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
      * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
      *
      * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
-    static signed<TRequest, TResponse>(path: string, uriId: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
-        return new WPNEndpoint<TRequest, TResponse>(path, returnsData, responseConfig, uriId, undefined, e2eeConfig)
+    static signed<TRequest, TResponse>(path: string, uriId: string, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
+        return new WPNEndpoint<TRequest, TResponse>(path, responseConfig, uriId, undefined, e2eeConfig)
     }
 
     /**
@@ -38,33 +37,30 @@ export class WPNEndpoint<TRequest, TResponse> {
      * 
      * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
      * @param tokenName Name of the token used for authentication, for example "myAuthToken".
-     * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
      * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
      * 
      * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
-    static signedWithToken<TRequest, TResponse>(path: string, tokenName: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
-        return new WPNEndpoint<TRequest, TResponse>(path, returnsData, responseConfig, undefined, tokenName, e2eeConfig)
+    static signedWithToken<TRequest, TResponse>(path: string, tokenName: string, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
+        return new WPNEndpoint<TRequest, TResponse>(path, responseConfig, undefined, tokenName, e2eeConfig)
     }
 
     /**
      * Create unsigned endpoint that does not require any authentication.
      * 
      * @param path Endpoint path, for example "/pa/myendpoint". Will be added to the base URL.
-     * @param returnsData True if the endpoint is expected to return data in the response.
      * @param responseConfig Optional configuration for the response parsing.
      * @param e2eeConfig Optional configuration for end-to-end encryption (default is NOT_ENCRYPTED).
      * 
      * @typeParam U Type of the expected response data. Use `void` if no data is expected.
      */
-    static unsigned<TRequest, TResponse>(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
-        return new WPNEndpoint<TRequest, TResponse>(path, returnsData, responseConfig, undefined, undefined, e2eeConfig)
+    static unsigned<TRequest, TResponse>(path: string, responseConfig?: WPNResponseConfig, e2eeConfig?: WPNE2EEConfiguration): WPNEndpoint<TRequest, TResponse> {
+        return new WPNEndpoint<TRequest, TResponse>(path, responseConfig, undefined, undefined, e2eeConfig)
     }
 
     readonly method = "POST" // HTTP method for the request. We currently support only POST method.
     readonly path: string // Endpoint path, starting with a slash, for example "/pa/myendpoint"
-    readonly returnsData: boolean // True if the endpoint is expected to return data in the response.
     readonly e2eeConfig: WPNE2EEConfiguration // Configuration for end-to-end encryption.
     readonly responseConfig?: WPNResponseConfig // Optional configuration for the response parsing.
     readonly uriId?: string // URI ID used for signature calculation. Only for signed endpoints.
@@ -81,10 +77,9 @@ export class WPNEndpoint<TRequest, TResponse> {
         }
     }
 
-    private constructor(path: string, returnsData: boolean, responseConfig?: WPNResponseConfig, uriId?: string, tokenName?: string, e2eeConfig: WPNE2EEConfiguration = WPNE2EEConfiguration.NOT_ENCRYPTED) {
+    private constructor(path: string, responseConfig?: WPNResponseConfig, uriId?: string, tokenName?: string, e2eeConfig: WPNE2EEConfiguration = WPNE2EEConfiguration.NOT_ENCRYPTED) {
         // Ensure that path starts with a slash
         this.path = (path.startsWith("/") ? path : ("/" + path))
-        this.returnsData = returnsData
         this.responseConfig = responseConfig
         this.uriId = uriId
         this.tokenName = tokenName

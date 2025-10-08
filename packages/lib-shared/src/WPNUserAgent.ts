@@ -48,10 +48,10 @@ export class WPNUserAgentUtils {
 
         } else if (userAgent == WPNUserAgent.SYSTEM_DEFAULT) {
             // leave empty to default to system value
-            return undefined;
+            return undefined
         } else {
             // Custom user agent string
-            return userAgent;
+            return userAgent
         }
     }
 
@@ -60,7 +60,7 @@ export class WPNUserAgentUtils {
             // If we have cached environment info, return it to avoid unnecessary calls.
             // This expects that the environment info does not change during the app lifetime.
             if (!this.cachedEnvironmentInfo) {
-                this.cachedEnvironmentInfo = await WPNPlatformUtils.provider.getEnvironmentInfo();
+                this.cachedEnvironmentInfo = await WPNPlatformUtils.provider.getEnvironmentInfo()
             }
             return this.cachedEnvironmentInfo
         } catch (e) {
