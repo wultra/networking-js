@@ -45,7 +45,7 @@ export class WPNNetworking extends WPNNetworkingBase {
      *
      * **Type Parameters:**
      * @param TRequest Type of the request data
-     * @param TResponse Type of the response data. Not that the response data are not actually typed, because they are deserialized from JSON to `any`. Use `void` if no data is expected.
+     * @param TResponse Type of the response data. Note that the response data are not actually typed, because they are deserialized from JSON to `any`. Use `void` if no data is expected.
      *
      * **Returns:**
      * @returns Response object deserialized from JSON

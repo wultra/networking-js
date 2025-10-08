@@ -116,7 +116,7 @@ export abstract class WPNNetworkingBase {
             request = requestProcessor(request)
         }
 
-        WPNLogger.info(` -> POST ${url}`)
+        WPNLogger.info(` -> ${endpoint.method} ${url}`)
         if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
             WPNLogger.verbose(this.getHeadersString(request.headers as Headers))
             WPNLogger.verbose(requestSerialized)
@@ -132,7 +132,7 @@ export abstract class WPNNetworkingBase {
         // Decrypt the response if needed
         const decryptedResponse = await encryptResult.decryptor(responseBody)
 
-        WPNLogger.info(` <- POST ${url} - ${result.status}`)
+        WPNLogger.info(` <- ${endpoint.method} ${url} - ${result.status}`)
         if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
             WPNLogger.verbose(this.getHeadersString(result.headers))
             WPNLogger.verbose(decryptedResponse)

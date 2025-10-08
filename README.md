@@ -230,10 +230,10 @@ interface MyResponse {
 }
 
 // endpoint configuration
-const endpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signed("/path/to/the/signed/endpoint", "endpoint/identifier", true, undefined, WPNE2EEConfiguration.ACTIVATION_SCOPE)
+const endpoint: WPNEndpoint<MyRequest, MyResponse> = WPNEndpoint.signed("/path/to/the/signed/endpoint", "endpoint/identifier", undefined, WPNE2EEConfiguration.ACTIVATION_SCOPE)
 
 // Authentication (for example purposes) expect user PIN 1111
-const auth = PowerAuthAuthentication.password("1111)
+const auth = PowerAuthAuthentication.password("1111")
             
 // WPNNetworkingService instance call
 const response = await networking.call(
