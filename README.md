@@ -1,8 +1,5 @@
 # PowerAuth Networking JS SDK
 
-> [!WARNING]
-> This library is __"WORK IN PROGRESS"__
-
 <!-- begin remove -->
 <p align="center"><img src="docs/intro.jpg" alt="Wultra Networking JS SDK" width="100%" /></p>
 
@@ -35,10 +32,6 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Initialization and Configuration](#initialization-and-configuration)
 - [Endpoint Definition](#endpoint-definition)
 - [Creating an HTTP request](#creating-an-http-request)
-- [Raw Response Observer](#raw-response-observer)
-- [Parallel Requests](#parallel-requests)
-- [SSL validation](#ssl-validation)
-- [JSON encoder and decoder](#json-encoder-and-decoder)
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
@@ -120,7 +113,7 @@ pod install
 
 ## Open Source Code
 
-The code of the library is open source and you can freely browse it in our GitHub at [https://github.com/wultra/networking-js](https://github.com/wultra/networking-js/#docucheck-keep-link)
+The code of the library is open source, and you can freely browse it in our GitHub at [https://github.com/wultra/networking-js](https://github.com/wultra/networking-js/#docucheck-keep-link)
 
 ## Initialization and Configuration
 
