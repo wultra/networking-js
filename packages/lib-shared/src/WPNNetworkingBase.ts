@@ -130,19 +130,37 @@ export abstract class WPNNetworkingBase {
         const responseBody = await result.text()
 
         // Decrypt the response if needed
-        const decryptedResponse = await encryptResult.decryptor(responseBody)
+        try {
+            const decryptedResponse = await encryptResult.decryptor(responseBody)
 
-        WPNLogger.info(` <- ${endpoint.method} ${url} - ${result.status}`)
-        if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
-            WPNLogger.verbose(this.getHeadersString(result.headers))
-            WPNLogger.verbose(decryptedResponse)
-            if (decryptedResponse !== responseBody) {
-                WPNLogger.verbose("ENCRYPTED RESPONSE: " + responseBody)
+            WPNLogger.info(` <- ${endpoint.method} ${url} - ${result.status}`)
+            if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
+                WPNLogger.verbose(this.getHeadersString(result.headers))
+                WPNLogger.verbose(decryptedResponse)
+                if (decryptedResponse !== responseBody) {
+                    WPNLogger.verbose("ENCRYPTED RESPONSE: " + responseBody)
+                }
             }
-        }
 
+            return this.parseResponse(decryptedResponse, endpoint, result)
+        } catch (e) {
+            WPNLogger.error(`Failed to decrypt response from ${endpoint.method} ${url}. Falling back to plain response parsing.`)
+            try {
+                // error responses might not be encrypted, so try to parse the response as plain, but only for error responses
+                const plainResponse = this.parseResponse<TResponse>(responseBody, endpoint, result)
+                if (plainResponse.status == "ERROR") {
+                    return plainResponse
+                }
+            } catch {
+                // ignore parsing errors
+            }
+            throw e // rethrow original exception
+        }
+    }
+
+    private parseResponse<TResponse>(body: string, endpoint: WPNEndpoint<any, TResponse>, result: Response): WPNResponse<TResponse> {
         // parse the response
-        const response = JSON.parse(decryptedResponse, (key: string, value: any) => {
+        const response = JSON.parse(body, (key: string, value: any) => {
 
             // TODO: resolve nested date fields
             if (endpoint.responseConfig?.dateFields?.includes(key)) {
@@ -157,7 +175,8 @@ export abstract class WPNNetworkingBase {
             }
             response.responseError = response.responseObject as WPNResponseError
             response.responseObject = undefined
-
+        } else if (response.status != "OK") {
+            throw new WPNException(`Unknown response status: ${response.status}`, { ...result })
         }
 
         return response
@@ -179,8 +198,8 @@ export abstract class WPNNetworkingBase {
         // Encrypt the body
         const encrypted = await encryptor.encryptRequest(body)
         let header: WPNAuthToken = undefined
-        // If the endpoint is unsigned, use the header from the encrypted response
-        if (endpoint.type === WPNEndpointType.UNSIGNED) {
+        // If the header is not already set by signing process, use encryption header
+        if (endpoint.type !== WPNEndpointType.SIGNED) {
             header = encrypted.header
         }
         // Return the cryptogram JSON string, header and decryptor
