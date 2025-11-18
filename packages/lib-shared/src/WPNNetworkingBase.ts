@@ -198,7 +198,7 @@ export abstract class WPNNetworkingBase {
         // Encrypt the body
         const encrypted = await encryptor.encryptRequest(body)
         let header: WPNAuthToken = undefined
-        // If the endpoint is unsigned, use the header from the encrypted response
+        // If the header is not already set by signing process, use encryption header
         if (endpoint.type !== WPNEndpointType.SIGNED) {
             header = encrypted.header
         }
