@@ -317,6 +317,10 @@ In case you want to process logs on your own (for example log into a file or som
 
 ## Changelog
 
+### 1.0.1
+
+- Fixed errors in end-to-end encryption handling
+
 ### 1.0.0
 
 - Initial release
