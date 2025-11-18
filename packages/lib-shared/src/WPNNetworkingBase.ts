@@ -146,8 +146,8 @@ export abstract class WPNNetworkingBase {
         } catch (e) {
             WPNLogger.error(`Failed to decrypt response from ${endpoint.method} ${url}. Falling back to plain response parsing.`)
             try {
-                // error responses might not be encrypted, so try to parse the response as a plain, but only for error responses
-                const plainResponse = this.parseResponse<TResponse>(JSON.parse(responseBody), endpoint, result)
+                // error responses might not be encrypted, so try to parse the response as plain, but only for error responses
+                const plainResponse = this.parseResponse<TResponse>(responseBody, endpoint, result)
                 if (plainResponse.status == "ERROR") {
                     return plainResponse
                 }
