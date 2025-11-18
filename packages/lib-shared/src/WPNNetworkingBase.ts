@@ -199,7 +199,7 @@ export abstract class WPNNetworkingBase {
         const encrypted = await encryptor.encryptRequest(body)
         let header: WPNAuthToken = undefined
         // If the endpoint is unsigned, use the header from the encrypted response
-        if (endpoint.type === WPNEndpointType.UNSIGNED) {
+        if (endpoint.type !== WPNEndpointType.SIGNED) {
             header = encrypted.header
         }
         // Return the cryptogram JSON string, header and decryptor
