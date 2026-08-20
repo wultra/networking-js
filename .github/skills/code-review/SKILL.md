@@ -5,7 +5,16 @@ description: Review pull requests in the PowerAuth Networking JS SDK repository.
 
 # networking-js review
 
-Review the actual PR target, head, and current checkout before judging it. This repository's normal integration target is `develop`; do not assume a release branch from its name. Default to **approve**. Report only a concrete, reproducible defect introduced by the PR, with affected `path:line`, user/security impact, and a specific correction. Do not give style, formatting, or CI-process advice.
+Review only PR and repository content already available. Do not run or suggest
+commands, scripts, builds, tests, linters, formatters, validation tasks, or Git
+operations.
+
+Use available PR metadata for the target and head before judging the available
+diff. This repository's normal integration target is `develop`; do not assume a
+release branch from its name. Default to **approve**. Report only a concrete,
+reproducible defect introduced by the PR, with affected `path:line`,
+user/security impact, and a specific correction. Do not give style, formatting,
+or CI-process advice.
 
 Never post, submit, or resolve anything on GitHub without explicit user approval. Any content that could be posted must start with `🤖`.
 
@@ -31,12 +40,15 @@ Follow endpoint changes from `packages/lib-shared/src/WPNEndpoint.ts` through `W
 
 Cordova imports of `cordova-powerauth-mobile-sdk` and `cordova` are deliberately stripped in `rollup.config.js` because plugins provide them at runtime. React Native externals are `react-native-powerauth-mobile-sdk` and `react-native`; flag a change that bundles or removes either runtime boundary.
 
-## Release, docs, and validation
+## Release, docs, and review evidence
 
-`rollup.config.js` produces both packages; `yarn packAll` is the focused packaging check. CI runs it through `.github/workflows/ci.yml`.
+`rollup.config.js` and `.github/workflows/ci.yml` contain tracked packaging
+logic that may be read for context only.
 
 Release metadata is defined by `.prepare-release.json`: root `package.json`, both package manifests, `packages/lib-cordova/plugin.xml`, and `packages/lib-shared/src/WPNSDKVersion.ts`, plus the `README.md` changelog heading. For a release-to-`develop` transition, every declared SDK/package/plugin version must be `0.0.1-dev` (not a release value); retain coordinated release versions only on the release branch.
 
 Treat `README.md` as public integration documentation: update its changelog and compatible PowerAuth dependency guidance when a public behavior, package requirement, or release changes. Flag grammar only in changed public README/API documentation and only when the PR base is not a release branch. Do not review grammar elsewhere.
 
-Tests should cover a changed endpoint/authentication/E2EE/error branch in both applicable platform paths; build artifact churn alone is not evidence of a source fix.
+Tests in both applicable platform paths may be inspected as evidence for a
+changed endpoint, authentication, E2EE, or error branch, but never suggest
+running them. Build artifact churn alone is not evidence of a source fix.
