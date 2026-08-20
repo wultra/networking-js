@@ -1,6 +1,6 @@
 ---
-name: networking-js-code-review
-description: Review PowerAuth Networking JS SDK pull requests with security and compatibility focus.
+name: code-review
+description: Review pull requests in the PowerAuth Networking JS SDK repository. Use when reviewing TypeScript APIs, native bridges, transport security, serialization, compatibility, or release changes.
 ---
 
 # networking-js review
