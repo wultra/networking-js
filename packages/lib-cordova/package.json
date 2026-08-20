@@ -1,6 +1,6 @@
 {
   "name": "cordova-powerauth-networking",
-  "version": "1.0.0",
+  "version": "0.0.1-dev",
   "description": "A high-level networking SDK for PowerAuth-based endpoints.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

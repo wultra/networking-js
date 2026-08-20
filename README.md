@@ -53,12 +53,6 @@ Defining it as a peer dependency ensures that only a single instance of the Powe
 - For **React Native**, install both `react-native-powerauth-mobile-sdk` and `react-native-powerauth-networking` using `npm` or `yarn`.
 - For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The `cordova-powerauth-mobile-sdk` will be automatically installed as a dependency.
 
-### Compatible PowerAuth Mobile JS SDK Versions
-
-| WPN Version | PowerAuth JS SDK |
-|-------------|------------------|
-| `1.0.x`     | `^4.1.0`         |
-
 ### React Native Installation
 
 #### Supported Platforms
@@ -72,7 +66,7 @@ The library is available for the following __React Native (0.73+)__ platforms:
 
 ##### 1. Install packages via npm
 ```sh
-# if not added yet, add powerauth mobile SDK first (compatible versions are at the top of this document)
+# if not added yet, add PowerAuth Mobile SDK first
 npm i react-native-powerauth-mobile-sdk --save
 npm i react-native-powerauth-networking --save
 ```
@@ -316,6 +310,12 @@ You can enable or disable time logging via the `includeTime` property. The defau
 In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLoggerConfig.listener`.
 
 ## Changelog
+
+### TBA
+
+### 1.0.1
+
+- Fixed errors in end-to-end encryption handling
 
 ### 1.0.0
 
