@@ -51,7 +51,7 @@ PowerAuth Mobile JS SDK 5.0.0 is a required peer dependency.
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
 - For **React Native**, install both `react-native-powerauth-mobile-sdk` and `react-native-powerauth-networking` using `npm` or `yarn`.
-- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The `cordova-powerauth-mobile-sdk` will be automatically installed as a dependency. Update an existing PowerAuth 4.x plugin to 5.0.0 before installing this networking version.
+- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The `cordova-powerauth-mobile-sdk` will be automatically installed as a dependency.
 
 ### React Native Installation
 
@@ -129,7 +129,7 @@ let baseURL = "https://my.backend.com/api/v3" // whene undefined, powerauth url 
 const networking = new WPNNetworking(pa, baseURL)
 ```
 
-When `baseURL` is omitted, each call asynchronously reads `pa.configuration` to resolve the URL. Configuration errors or a missing URL reject that call; they are no longer thrown by the constructor. Passing an explicit URL bypasses the configuration lookup.
+When `baseURL` is omitted, each call asynchronously reads `pa.configuration` to resolve the URL. Configuration errors or a missing URL reject that call. Passing an explicit URL bypasses the configuration lookup.
 
 ## Endpoint Definition
 
@@ -201,7 +201,7 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
-- `requestProcessor` - optional request processor that can modify the request before it is sent to the server. Encrypted requests now supply the native HTTP body as a `Uint8Array`; do not JSON-encode it.
+- `requestProcessor` - optional request processor that can modify the request before it is sent to the server. For encrypted requests, the body is a `Uint8Array` and must not be JSON-encoded.
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -313,7 +313,7 @@ In case you want to process logs on your own (for example log into a file or som
 
 ## Development verification
 
-Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested. See [native E2E verification](docs/native-e2e.md) for the device/backend scenarios required before release.
+Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
 
 
 ## Changelog
