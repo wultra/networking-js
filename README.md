@@ -41,7 +41,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 
 ### Requirements
 
-- React Native (0.73+) or Apache Cordova (>=12.0.0)
+- React Native (0.87+) or Apache Cordova (>=12.0.0)
 - [PowerAuth Mobile JS SDK](https://github.com/wultra/react-native-powerauth-mobile-sdk) needs to be implemented in your project
 
 ### PowerAuth JS SDK Dependency
@@ -57,10 +57,10 @@ Defining it as a peer dependency ensures that only a single instance of the Powe
 
 #### Supported Platforms
 
-The library is available for the following __React Native (0.73+)__ platforms:
+The library is available for the following __React Native (0.87+)__ platforms:
 
-- __Android 5.0 (API 21)__ and newer
-- __iOS 13.4__ and newer
+- __Android 7.0 (API 24)__ and newer
+- __iOS 15.1__ and newer
 
 #### How To Install
 
@@ -87,7 +87,7 @@ pod install
 The library is available for the following __Apache Cordova (>=12.0.0)__ platforms:
 
 - __Android 7.0 (API 24)__ and newer (cordova-android version >=12.0.0)
-- __iOS 11.0__ and newer (cordova-ios version >=7.0.0)
+- __iOS 13.0__ and newer (cordova-ios version >=7.0.0)
 
 #### How To Install
 
