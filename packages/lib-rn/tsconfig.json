@@ -3,6 +3,7 @@
   "exclude": ["node_modules"],
   "include": [ "src/**/*.ts" ],
   "compilerOptions": {
-    "target": "esnext"
+    "target": "esnext",
+    "moduleResolution": "bundler"
   }
 }

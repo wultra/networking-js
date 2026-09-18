@@ -41,12 +41,12 @@ We use this SDK in our other open-source projects that you can take inspiration 
 
 ### Requirements
 
-- React Native (0.73+) or Apache Cordova (>=12.0.0)
+- React Native (0.87+) or Apache Cordova (>=12.0.0)
 - [PowerAuth Mobile JS SDK](https://github.com/wultra/react-native-powerauth-mobile-sdk) needs to be implemented in your project
 
 ### PowerAuth JS SDK Dependency
 
-The PowerAuth JS SDK is a required peer dependency of the SDK. You must install it in a compatible version. 
+PowerAuth Mobile JS SDK 5.0.0 is a required peer dependency.
 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
@@ -57,17 +57,17 @@ Defining it as a peer dependency ensures that only a single instance of the Powe
 
 #### Supported Platforms
 
-The library is available for the following __React Native (0.73+)__ platforms:
+The library is available for the following __React Native (0.87+)__ platforms:
 
-- __Android 5.0 (API 21)__ and newer
-- __iOS 13.4__ and newer
+- __Android 7.0 (API 24)__ and newer
+- __iOS 15.1__ and newer
 
 #### How To Install
 
 ##### 1. Install packages via npm
 ```sh
 # if not added yet, add PowerAuth Mobile SDK first
-npm i react-native-powerauth-mobile-sdk --save
+npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-1/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
 npm i react-native-powerauth-networking --save
 ```
 
@@ -87,7 +87,7 @@ pod install
 The library is available for the following __Apache Cordova (>=12.0.0)__ platforms:
 
 - __Android 7.0 (API 24)__ and newer (cordova-android version >=12.0.0)
-- __iOS 11.0__ and newer (cordova-ios version >=7.0.0)
+- __iOS 13.0__ and newer (cordova-ios version >=7.0.0)
 
 #### How To Install
 
@@ -128,6 +128,8 @@ let pa: PowerAuth = ... // your PowerAuthSDK instance
 let baseURL = "https://my.backend.com/api/v3" // whene undefined, powerauth url will be used
 const networking = new WPNNetworking(pa, baseURL)
 ```
+
+When `baseURL` is omitted, each call asynchronously reads `pa.configuration` to resolve the URL. Configuration errors or a missing URL reject that call. Passing an explicit URL bypasses the configuration lookup.
 
 ## Endpoint Definition
 
@@ -199,7 +201,7 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
-- `requestProcessor` - optional request processor that can modify the request before it is sent to the server
+- `requestProcessor` - optional request processor that can modify the request before it is sent to the server. For encrypted requests, the body is a `Uint8Array` and must not be JSON-encoded.
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -309,9 +311,19 @@ You can enable or disable time logging via the `includeTime` property. The defau
 
 In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLoggerConfig.listener`.
 
+## Development verification
+
+Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
+
+
 ## Changelog
 
 ### TBA
+
+- Updated the PowerAuth Mobile JS SDK dependencies to 5.0.0. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Updated the minimum supported React Native version to 0.87, Android version to 7.0 (API 24), and iOS version to 15.1 for React Native and 13.0 for Cordova. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Changed `WPNNetworking` to resolve an omitted `baseURL` during `call()`. Configuration failures reject the call instead of throwing in the constructor. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Changed encrypted request bodies exposed to `WPNRequestProcessor` from JSON cryptogram strings to `Uint8Array` values. Processors must preserve the body without parsing or re-encoding it. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1
 

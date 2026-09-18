@@ -80,6 +80,6 @@ export default [
       dir: libRNOutput,
       format: 'es'
     },
-    plugins: [dts()],
+    plugins: [dts({ tsconfig: `${libRNDir}/tsconfig.json` })],
   }
 ]
