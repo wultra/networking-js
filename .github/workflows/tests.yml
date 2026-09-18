@@ -1,4 +1,4 @@
-name: CI
+name: Tests
 on:
   push:
     branches:
@@ -8,8 +8,7 @@ on:
       - develop
 
 jobs:
-
-  build-library:
+  test-networking:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,5 +17,5 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Build package
-        run: yarn packAll
+      - name: Test both platform packages
+        run: yarn test
