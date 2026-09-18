@@ -18,5 +18,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Test both platform packages
+        run: yarn test
+
       - name: Build package
         run: yarn packAll

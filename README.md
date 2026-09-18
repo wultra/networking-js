@@ -46,12 +46,14 @@ We use this SDK in our other open-source projects that you can take inspiration 
 
 ### PowerAuth JS SDK Dependency
 
-The PowerAuth JS SDK is a required peer dependency of the SDK. You must install it in a compatible version. 
+The PowerAuth JS SDK is a required peer dependency of the SDK. This development branch targets **PowerAuth Mobile JS SDK 5.0.0-beta-1**. The beta is distributed as GitHub release assets, whose package version is `5.0.0`; it is not an npm prerelease version. Use the exact assets below rather than an unversioned npm install. PowerAuth 4.x is not compatible.
+
+The beta uses PowerAuth native SDK 2.0.0. Your backend and activation configuration must support the selected PowerAuth protocol; upgrading the networking package alone does not migrate activations.
 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
 - For **React Native**, install both `react-native-powerauth-mobile-sdk` and `react-native-powerauth-networking` using `npm` or `yarn`.
-- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The `cordova-powerauth-mobile-sdk` will be automatically installed as a dependency.
+- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The matching `cordova-powerauth-mobile-sdk` beta release asset will be automatically installed as a dependency. Remove an existing 4.x PowerAuth plugin before installing this development version.
 
 ### React Native Installation
 
@@ -67,7 +69,7 @@ The library is available for the following __React Native (0.87+)__ platforms:
 ##### 1. Install packages via npm
 ```sh
 # if not added yet, add PowerAuth Mobile SDK first
-npm i react-native-powerauth-mobile-sdk --save
+npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-1/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
 npm i react-native-powerauth-networking --save
 ```
 
@@ -128,6 +130,8 @@ let pa: PowerAuth = ... // your PowerAuthSDK instance
 let baseURL = "https://my.backend.com/api/v3" // whene undefined, powerauth url will be used
 const networking = new WPNNetworking(pa, baseURL)
 ```
+
+When `baseURL` is omitted, each call asynchronously reads `pa.configuration` to resolve the URL. Configuration errors or a missing URL reject that call; they are no longer thrown by the constructor. Passing an explicit URL bypasses the configuration lookup.
 
 ## Endpoint Definition
 
@@ -199,7 +203,7 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
-- `requestProcessor` - optional request processor that can modify the request before it is sent to the server
+- `requestProcessor` - optional request processor that can modify the request before it is sent to the server. Encrypted requests now supply the native HTTP body as a `Uint8Array`; do not JSON-encode it.
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -309,9 +313,19 @@ You can enable or disable time logging via the `includeTime` property. The defau
 
 In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLoggerConfig.listener`.
 
+## Development verification
+
+Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested. See [native E2E verification](docs/native-e2e.md) for the device/backend scenarios required before release.
+
+
 ## Changelog
 
 ### TBA
+
+- Integrate PowerAuth Mobile JS SDK 5.0.0-beta-1 for React Native and Cordova.
+- Use the new authentication/token header APIs and asynchronous configuration and encryptor acquisition.
+- Preserve sign-then-encrypt over the original JSON body for custom endpoints, following the beta JavaScript API contract.
+- Adapt UTF-8 JSON bodies to the Base64 bridge contract and release each single-use encryptor on success or failure.
 
 ### 1.0.1
 

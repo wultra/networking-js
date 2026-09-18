@@ -7,7 +7,9 @@
   ],
   "scripts": {
     "dev": "rollup -c rollup.config.js -w",
-    "packAll": "yarn workspace cordova-powerauth-networking pack && yarn workspace react-native-powerauth-networking pack"
+    "packAll": "yarn workspace cordova-powerauth-networking pack && yarn workspace react-native-powerauth-networking pack",
+    "build": "rollup -c rollup.config.js",
+    "test": "yarn build && node --experimental-vm-modules --test tests/*.test.mjs"
   },
   "devDependencies": {
     "rollup": "^4.59.0",

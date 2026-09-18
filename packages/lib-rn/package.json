@@ -33,7 +33,7 @@
     "react": "19.2.3",
     "react-native": "0.87.0",
     "typescript": "^5.2.2",
-    "react-native-powerauth-mobile-sdk": "^4.1.0"
+    "react-native-powerauth-mobile-sdk": "https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-1/react-native-powerauth-mobile-sdk-5.0.0.tgz"
   },
   "resolutions": {
     "@types/react": "^19.2.0"
@@ -41,6 +41,6 @@
   "peerDependencies": {
     "react": "^19.2.3",
     "react-native": ">=0.87.0",
-    "react-native-powerauth-mobile-sdk": "^4.1.0"
+    "react-native-powerauth-mobile-sdk": "5.0.0"
   }
 }
