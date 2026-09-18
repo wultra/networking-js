@@ -46,14 +46,12 @@ We use this SDK in our other open-source projects that you can take inspiration 
 
 ### PowerAuth JS SDK Dependency
 
-The PowerAuth JS SDK is a required peer dependency of the SDK. This development branch targets **PowerAuth Mobile JS SDK 5.0.0-beta-1**. The beta is distributed as GitHub release assets, whose package version is `5.0.0`; it is not an npm prerelease version. Use the exact assets below rather than an unversioned npm install. PowerAuth 4.x is not compatible.
-
-The beta uses PowerAuth native SDK 2.0.0. Your backend and activation configuration must support the selected PowerAuth protocol; upgrading the networking package alone does not migrate activations.
+PowerAuth Mobile JS SDK 5.0.0 is a required peer dependency.
 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
 - For **React Native**, install both `react-native-powerauth-mobile-sdk` and `react-native-powerauth-networking` using `npm` or `yarn`.
-- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The matching `cordova-powerauth-mobile-sdk` beta release asset will be automatically installed as a dependency. Remove an existing 4.x PowerAuth plugin before installing this development version.
+- For **Cordova**, add `cordova-powerauth-networking` using the `cordova plugin add` command. The `cordova-powerauth-mobile-sdk` will be automatically installed as a dependency. Update an existing PowerAuth 4.x plugin to 5.0.0 before installing this networking version.
 
 ### React Native Installation
 
@@ -322,7 +320,7 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 
 ### TBA
 
-- Updated the PowerAuth Mobile JS SDK dependencies to 5.0.0-beta-1. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Updated the PowerAuth Mobile JS SDK dependencies to 5.0.0. ([#56](https://github.com/wultra/networking-js/pull/56))
 - Updated the minimum supported React Native version to 0.87, Android version to 7.0 (API 24), and iOS version to 15.1 for React Native and 13.0 for Cordova. ([#56](https://github.com/wultra/networking-js/pull/56))
 - Changed `WPNNetworking` to resolve an omitted `baseURL` during `call()`. Configuration failures reject the call instead of throwing in the constructor. ([#56](https://github.com/wultra/networking-js/pull/56))
 - Changed encrypted request bodies exposed to `WPNRequestProcessor` from JSON cryptogram strings to `Uint8Array` values. Processors must preserve the body without parsing or re-encoding it. ([#56](https://github.com/wultra/networking-js/pull/56))
