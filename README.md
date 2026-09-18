@@ -322,10 +322,10 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 
 ### TBA
 
-- Integrate PowerAuth Mobile JS SDK 5.0.0-beta-1 for React Native and Cordova.
-- Use the new authentication/token header APIs and asynchronous configuration and encryptor acquisition.
-- Preserve sign-then-encrypt over the original JSON body for custom endpoints, following the beta JavaScript API contract.
-- Adapt UTF-8 JSON bodies to the Base64 bridge contract and release each single-use encryptor on success or failure.
+- Updated the PowerAuth Mobile JS SDK dependencies to 5.0.0-beta-1. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Updated the minimum supported React Native version to 0.87, Android version to 7.0 (API 24), and iOS version to 15.1 for React Native and 13.0 for Cordova. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Changed `WPNNetworking` to resolve an omitted `baseURL` during `call()`. Configuration failures reject the call instead of throwing in the constructor. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Changed encrypted request bodies exposed to `WPNRequestProcessor` from JSON cryptogram strings to `Uint8Array` values. Processors must preserve the body without parsing or re-encoding it. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1
 
