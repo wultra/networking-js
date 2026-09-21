@@ -170,7 +170,7 @@ export abstract class WPNNetworkingBase {
         const response = JSON.parse(body, (key: string, value: any) => {
 
             // TODO: resolve nested date fields
-            if (endpoint.responseConfig?.dateFields?.includes(key)) {
+            if (endpoint.responseConfig?.dateFields?.some(field => field === key)) {
                 return new Date(value)
             }
             return value
