@@ -9,7 +9,7 @@ import { WPNResponse, WPNResponseError } from "./WPNResponse"
 import { WPNException } from "./WPNException"
 import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
 import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
-import { WPNEndpoint, WPNEndpointType, WPNE2EEConfiguration } from "./WPNEndpoint"
+import { WPNEndpoint, WPNEndpointType } from "./WPNEndpoint"
 import { decodeBase64, encodeBase64, decodeBase64Bytes, encodeBase64Bytes } from "./WPNBase64"
 
 /** Function to process requests before sending */
@@ -111,8 +111,8 @@ export abstract class WPNNetworkingBase {
             if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
                 WPNLogger.verbose(this.getHeadersString(request.headers as Headers))
                 WPNLogger.verbose(requestSerialized)
-                if (requestBody !== requestSerialized) {
-                    WPNLogger.verbose("ENCRYPTED BODY: " + requestBody)
+                if (encryptor) {
+                    WPNLogger.verbose("ENCRYPTED BODY: " + encodeBase64Bytes(requestBody as Uint8Array))
                 }
             }
 
@@ -120,9 +120,23 @@ export abstract class WPNNetworkingBase {
             const result = await fetch(url, request)
             // Parse plaintext HTTP errors without consuming the single-use decryptor.
             if (encryptor && !result.ok) {
-                const errorResponse = this.parseResponse<TResponse>(await result.text(), endpoint, result)
+                const errorBody = await result.text()
+                WPNLogger.info(` <- ${endpoint.method} ${url} - ${result.status}`)
+                if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
+                    WPNLogger.verbose(this.getHeadersString(result.headers))
+                    WPNLogger.verbose(errorBody)
+                }
+                let errorResponse: WPNResponse<TResponse>
+                try {
+                    errorResponse = this.parseResponse<TResponse>(errorBody, endpoint, result)
+                } catch (e) {
+                    if (e instanceof WPNException) {
+                        throw e
+                    }
+                    throw new WPNException("Failed to parse the response of an unsuccessful encrypted request", { status: result.status })
+                }
                 if (errorResponse.status !== "ERROR") {
-                    throw new WPNException("Expected an error response for unsuccessful encrypted request", { ...result })
+                    throw new WPNException("Expected an error response for unsuccessful encrypted request", { status: result.status })
                 }
                 return errorResponse
             }
@@ -200,8 +214,8 @@ export abstract class WPNNetworkingBase {
             return body
         }
         const encrypted = await encryptor.encryptRequest(body === undefined ? undefined : encodeBase64(body))
-        // Activation-scoped signed requests carry encryption context in their authentication header.
-        if (endpoint.type !== WPNEndpointType.SIGNED || endpoint.e2eeConfig !== WPNE2EEConfiguration.ACTIVATION_SCOPE) {
+        // Signed requests carry the encryption context in their authentication header (native SDK parity).
+        if (endpoint.type !== WPNEndpointType.SIGNED) {
             encrypted.requestHeaders.forEach(header => headers.set(header.name, header.value))
         }
         return decodeBase64Bytes(encrypted.requestBody)

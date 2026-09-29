@@ -35,6 +35,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
+- [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50)
 - [Changelog](#changelog)
 
 ## SDK Integration
@@ -311,6 +312,51 @@ You can enable or disable time logging via the `includeTime` property. The defau
 
 In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLoggerConfig.listener`.
 
+## Migration to PowerAuth Mobile JS SDK 5.0
+
+This version of the library works only with PowerAuth Mobile JS SDK 5.0.0. Follow the steps below when you upgrade from version 1.0.x.
+
+### 1. Upgrade PowerAuth first
+
+Most of the work is on the PowerAuth side. Follow the [PowerAuth Mobile JS SDK 5.0 migration guide](https://github.com/wultra/react-native-powerauth-mobile-sdk/blob/develop/docs/Version-5.0.md). It explains:
+
+- which PowerAuth Server version you need for the algorithm you configure,
+- how to upgrade existing user activations to the new protocol,
+- the changed handling of activation QR codes (the code's signature suffix is no longer verified).
+
+This library does not create, change, or upgrade activations. Your existing endpoint definitions and `call()` usage stay the same.
+
+### 2. Update dependencies and platforms
+
+- __React Native__: install PowerAuth Mobile JS SDK 5.0.0 and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
+- __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 13.0+ are required.
+
+### 3. Handle a missing base URL when calling
+
+When you create `WPNNetworking` without `baseURL`, the URL is read from the PowerAuth configuration. The constructor no longer throws when the URL is missing. The error is reported by the `call()` instead.
+
+```typescript
+// Before: the constructor threw an exception.
+// Now: the constructor succeeds and the call is rejected.
+const networking = new WPNNetworking(pa)
+try {
+    const response = await networking.call(endpoint, requestData, auth)
+} catch (error) {
+    // WPNException "WPNNetworking: Base URL not provided." or a PowerAuth configuration error
+}
+```
+
+### 4. Check request processors of encrypted endpoints
+
+If you pass a `requestProcessor` to `call()` for an end-to-end encrypted endpoint, the request body is now a `Uint8Array` with encrypted bytes, not a JSON string. You can still add or change headers. Do not read, parse, or replace the body, otherwise the server cannot decrypt the request.
+
+### 5. Check error handling of encrypted endpoints
+
+When the server rejects an encrypted request with an HTTP error, the library no longer tries to decrypt the response.
+
+- If the server returns a standard error response, `call()` resolves with `status` set to `"ERROR"` and the error in `responseError`, same as for unencrypted endpoints.
+- Any other failed response rejects the call.
+
 ## Development verification
 
 Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
@@ -320,10 +366,11 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 
 ### TBA
 
-- Updated the PowerAuth Mobile JS SDK dependencies to 5.0.0. ([#56](https://github.com/wultra/networking-js/pull/56))
-- Updated the minimum supported React Native version to 0.87, Android version to 7.0 (API 24), and iOS version to 15.1 for React Native and 13.0 for Cordova. ([#56](https://github.com/wultra/networking-js/pull/56))
-- Changed `WPNNetworking` to resolve an omitted `baseURL` during `call()`. Configuration failures reject the call instead of throwing in the constructor. ([#56](https://github.com/wultra/networking-js/pull/56))
-- Changed encrypted request bodies exposed to `WPNRequestProcessor` from JSON cryptogram strings to `Uint8Array` values. Processors must preserve the body without parsing or re-encoding it. ([#56](https://github.com/wultra/networking-js/pull/56))
+- The library now requires PowerAuth Mobile JS SDK 5.0.0 and does not work with older versions. See [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50). ([#56](https://github.com/wultra/networking-js/pull/56))
+- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 13.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56))
+- Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Custom request processors now receive the body of encrypted requests as raw bytes instead of text. Processors that read or change this body stop working. ([#56](https://github.com/wultra/networking-js/pull/56))
+- When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1
 

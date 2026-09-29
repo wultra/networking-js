@@ -13,12 +13,13 @@ const responseBytes = Uint8Array.from([254, 0, 129, 10])
 const ok = JSON.stringify({ status: 'OK', responseObject: payload })
 
 // Exercise the built networking packages with fixed PowerAuth responses; no cryptography runs here.
-async function load(platform, fetchImpl) {
+async function load(platform, fetchImpl, contextOverrides = {}) {
     const context = vm.createContext({
         Headers, Response, Uint8Array, btoa, atob, console,
         fetch: fetchImpl,
         exports: {}, cordova: { platformId: 'ios' },
-        PowerAuthUtils: { getEnvironmentInfo: async () => ({ systemName: 'iOS', systemVersion: '18', deviceManufacturer: 'Apple', deviceId: 'test', sdkVersion: '5.0.0' }) }
+        PowerAuthUtils: { getEnvironmentInfo: async () => ({ systemName: 'iOS', systemVersion: '18', deviceManufacturer: 'Apple', deviceId: 'test', sdkVersion: '5.0.0' }) },
+        ...contextOverrides
     })
     const code = await readFile(new URL(`../packages/lib-${platform}/lib/index.js`, import.meta.url), 'utf8')
     let sdk
@@ -80,7 +81,7 @@ function powerAuthStub(overrides = {}) {
                 if (overrides.encryptError) throw overrides.encryptError
                 return {
                     requestBody: Buffer.from(encryptedBody).toString('base64'),
-                    requestHeaders: [{ name: 'X-PowerAuth-Encryption', value: scope }, { name: 'X-Extra', value: 'native' }]
+                    requestHeaders: [{ name: 'X-PowerAuth-Encryption', value: scope }]
                 }
             },
             async decryptResponse(body) {
@@ -206,8 +207,7 @@ for (const platform of ['rn', 'cordova']) {
                     assert.equal(state.events.find(event => event[0] === 'decrypt')[1], Buffer.from(responseBytes).toString('base64'))
                     assert.deepEqual(state.encryptors, [{ scope, released: 1, encrypted: 1, decrypted: 1 }])
                 }
-                assert.equal(sent.request.headers.get('X-PowerAuth-Encryption'), scope !== 'none' && !(kind === 'signed' && scope === 'activation') ? scope : null)
-                assert.equal(sent.request.headers.get('X-Extra'), scope !== 'none' && !(kind === 'signed' && scope === 'activation') ? 'native' : null)
+                assert.equal(sent.request.headers.get('X-PowerAuth-Encryption'), scope !== 'none' && kind !== 'signed' ? scope : null)
             })
         }
     }
@@ -263,18 +263,46 @@ for (const platform of ['rn', 'cordova']) {
         })
     }
 
-    for (const body of [JSON.stringify({ status: 'ERROR', responseObject: { code: 'HTTP_ERROR' } }), ok, 'garbage']) {
+    for (const [body, error] of [
+        [JSON.stringify({ status: 'ERROR', responseObject: { code: 'HTTP_ERROR' } })],
+        [ok, /Expected an error response/],
+        ['<html>502 Bad Gateway</html>', /Failed to parse the response/],
+        [JSON.stringify({ status: 'ERROR' }), /no error data/]
+    ]) {
         test(`${platform}: unsuccessful encrypted HTTP response never reaches decryptor (${body.slice(0, 20)})`, async () => {
             const { pa, state } = powerAuthStub()
             const sdk = await load(platform, async () => new Response(body, { status: 400 }))
             const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
             const call = service.call(sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE), payload, undefined)
-            if (body.includes('HTTP_ERROR')) assert.equal((await call).responseError.code, 'HTTP_ERROR')
-            else await assert.rejects(call)
+            if (error) {
+                await assert.rejects(call, actual => actual instanceof sdk.WPNException && error.test(actual.description))
+                if (!body.includes('ERROR')) await call.catch(actual => assert.equal(actual.additionalData.status, 400))
+            } else assert.equal((await call).responseError.code, 'HTTP_ERROR')
             assert.equal(state.encryptors[0].decrypted, 0)
             assert.equal(state.encryptors[0].released, 1)
         })
     }
+
+    test(`${platform}: logs encrypted bodies as Base64 and unsuccessful encrypted responses`, async () => {
+        const messages = []
+        const silentConsole = { log() {} }
+        const { pa } = powerAuthStub()
+        let status = 200
+        const sdk = await load(platform, async () => new Response(status === 200 ? responseBytes : '{"status":"ERROR","responseObject":{"code":"E"}}', { status }), { console: silentConsole })
+        sdk.WPNLoggerConfig.verbosity = sdk.WPNLoggerVerbosity.VERBOSE
+        sdk.WPNLoggerConfig.listener = { log: message => messages.push(message) }
+        const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+        const endpoint = sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE)
+        await service.call(endpoint, payload, undefined)
+        assert.ok(messages.includes('ENCRYPTED BODY: ' + Buffer.from(encryptedBody).toString('base64')))
+        assert.ok(messages.includes('ENCRYPTED RESPONSE: ' + Buffer.from(responseBytes).toString('base64')))
+        status = 400
+        messages.length = 0
+        await service.call(endpoint, payload, undefined)
+        assert.ok(messages.includes(' <- POST https://example.test/x - 400'))
+        assert.ok(messages.includes('{"status":"ERROR","responseObject":{"code":"E"}}'))
+        sdk.WPNLoggerConfig.listener = undefined
+    })
 
     test(`${platform}: explicit URL bypasses async configuration; missing implicit URL rejects the call`, async () => {
         const sdk = await load(platform, async () => new Response(ok))
