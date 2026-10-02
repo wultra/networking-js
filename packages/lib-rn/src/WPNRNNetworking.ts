@@ -19,18 +19,21 @@ export class WPNNetworking extends WPNNetworkingBase {
 
     /**
      * @param pa PowerAuth instance
-     * @param baseURL Base URL for the networking service (usually https://<your-server>/enrollment-server/)
-     * If not provided, the base URL is taken from PowerAuth configuration (if available).
+     * @param baseURL Base URL for the networking service (usually https://<your-server>/enrollment-server/).
+     * If omitted, the URL is read from the PowerAuth configuration on every call, so it always matches
+     * the current configuration. A call fails if PowerAuth is not configured or has no URL.
+     * Providing the URL avoids this asynchronous lookup on each call.
      * @param acceptLanguage Accept language for the outgoing requests headers. Default is "en" when not set.
      * @param userAgent User-Agent string for the outgoing requests headers. Default is `WPNUserAgent.LIBRARY_DEFAULT` when not set.
-     * @throws WPNException when baseURL is not provided and it cannot be taken from PowerAuth configuration.
      */
     constructor(pa: PowerAuth, baseURL: string | undefined = undefined, acceptLanguage?: string, userAgent?: WPNUserAgent | string) {
-        const url = baseURL || pa.configuration?.baseEndpointUrl
-        if (!url) {
-            throw new WPNException("WPNNetworking: Base URL not provided.")
-        }
-        super(url, acceptLanguage, userAgent)
+        super(baseURL || (async () => {
+            const url = (await pa.configuration)?.baseEndpointUrl
+            if (!url) {
+                throw new WPNException("WPNNetworking: Base URL not provided.")
+            }
+            return url
+        }), acceptLanguage, userAgent)
         this.pa = pa
     }
 
@@ -69,15 +72,17 @@ export class WPNNetworking extends WPNNetworkingBase {
             requestData,
             endpoint,
             // Signing function
-            body => this.pa.requestSignature(authentication!, endpoint.method, endpoint.uriId!, body),
+            body => this.pa.authenticationHeaderForRequestWithBody(authentication!, endpoint.method, endpoint.uriId!, body)
+                .then(header => ({ key: header.name, value: header.value })),
             // Signing with token function
-            () => this.pa.tokenStore.requestAccessToken(endpoint.tokenName!, authentication!).then(token => this.pa.tokenStore.generateHeaderForToken(token.tokenName)),
+            () => this.pa.tokenStore.requestAccessToken(endpoint.tokenName!, authentication!).then(token => this.pa.tokenStore.generateAuthenticationHeader(token.tokenName))
+                .then(header => ({ key: header.name, value: header.value })),
             requestProcessor
         )
     }
 
     /** Get encryptor for the specified endpoint, if end-to-end encryption is enabled. */
-    protected getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): WPNEncryptor | undefined {
+    protected async getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): Promise<WPNEncryptor | undefined> {
         if (endpoint.e2eeConfig === WPNE2EEConfiguration.NOT_ENCRYPTED) {
             return undefined
         } else if (endpoint.e2eeConfig === WPNE2EEConfiguration.ACTIVATION_SCOPE) {
