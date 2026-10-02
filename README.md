@@ -126,11 +126,14 @@ Example:
 
 ```typescript
 let pa: PowerAuth = ... // your PowerAuthSDK instance
-let baseURL = "https://my.backend.com/api/v3" // whene undefined, powerauth url will be used
+let baseURL = "https://my.backend.com/api/v3" // optional, see below
 const networking = new WPNNetworking(pa, baseURL)
 ```
 
-When `baseURL` is omitted, each call asynchronously reads `pa.configuration` to resolve the URL. Configuration errors or a missing URL reject that call. Passing an explicit URL bypasses the configuration lookup.
+The `baseURL` parameter is optional:
+
+- **With `baseURL`**, all requests go to that URL, and no asynchronous configuration lookup is needed before each request.
+- **Without `baseURL`**, each request uses the server URL from your PowerAuth configuration (`baseEndpointUrl`). The URL is looked up again for every request, so if you reconfigure PowerAuth, the next request uses the new URL. If PowerAuth is not configured, the request fails with an error.
 
 ## Endpoint Definition
 

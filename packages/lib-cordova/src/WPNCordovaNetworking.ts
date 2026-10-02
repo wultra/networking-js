@@ -19,12 +19,12 @@ export class WPNNetworking extends WPNNetworkingBase {
 
     /**
      * @param pa PowerAuth instance
-     * @param baseURL Base URL for the networking service (usually https://<your-server>/enrollment-server/)
-     * If not provided, the base URL is taken from PowerAuth configuration (if available).
+     * @param baseURL Base URL for the networking service (usually https://<your-server>/enrollment-server/).
+     * If omitted, the URL is read from the PowerAuth configuration on every call, so it always matches
+     * the current configuration. A call fails if PowerAuth is not configured or has no URL.
+     * Providing the URL avoids this asynchronous lookup on each call.
      * @param acceptLanguage Accept language for the outgoing requests headers. Default is "en" when not set.
      * @param userAgent User-Agent string for the outgoing requests headers. Default is `WPNUserAgent.LIBRARY_DEFAULT` when not set.
-     * When baseURL is omitted, configuration is resolved asynchronously when calling an endpoint.
-     * The call rejects if configuration cannot supply a base URL.
      */
     constructor(pa: PowerAuth, baseURL: string | undefined = undefined, acceptLanguage?: string, userAgent?: WPNUserAgent | string) {
         super(baseURL || (async () => {
