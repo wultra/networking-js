@@ -35,18 +35,19 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
+- [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50)
 - [Changelog](#changelog)
 
 ## SDK Integration
 
 ### Requirements
 
-- React Native (0.73+) or Apache Cordova (>=12.0.0)
+- React Native (0.87+) or Apache Cordova (>=12.0.0)
 - [PowerAuth Mobile JS SDK](https://github.com/wultra/react-native-powerauth-mobile-sdk) needs to be implemented in your project
 
 ### PowerAuth JS SDK Dependency
 
-The PowerAuth JS SDK is a required peer dependency of the SDK. You must install it in a compatible version. 
+PowerAuth Mobile JS SDK 5.0.0 is a required peer dependency.
 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
@@ -57,17 +58,17 @@ Defining it as a peer dependency ensures that only a single instance of the Powe
 
 #### Supported Platforms
 
-The library is available for the following __React Native (0.73+)__ platforms:
+The library is available for the following __React Native (0.87+)__ platforms:
 
-- __Android 5.0 (API 21)__ and newer
-- __iOS 13.4__ and newer
+- __Android 7.0 (API 24)__ and newer
+- __iOS 15.1__ and newer
 
 #### How To Install
 
 ##### 1. Install packages via npm
 ```sh
 # if not added yet, add PowerAuth Mobile SDK first
-npm i react-native-powerauth-mobile-sdk --save
+npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-1/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
 npm i react-native-powerauth-networking --save
 ```
 
@@ -87,7 +88,7 @@ pod install
 The library is available for the following __Apache Cordova (>=12.0.0)__ platforms:
 
 - __Android 7.0 (API 24)__ and newer (cordova-android version >=12.0.0)
-- __iOS 11.0__ and newer (cordova-ios version >=7.0.0)
+- __iOS 13.0__ and newer (cordova-ios version >=7.0.0)
 
 #### How To Install
 
@@ -125,9 +126,14 @@ Example:
 
 ```typescript
 let pa: PowerAuth = ... // your PowerAuthSDK instance
-let baseURL = "https://my.backend.com/api/v3" // whene undefined, powerauth url will be used
+let baseURL = "https://my.backend.com/api/v3" // optional, see below
 const networking = new WPNNetworking(pa, baseURL)
 ```
+
+The `baseURL` parameter is optional:
+
+- **With `baseURL`**, all requests go to that URL, and no asynchronous configuration lookup is needed before each request.
+- **Without `baseURL`**, each request uses the server URL from your PowerAuth configuration (`baseEndpointUrl`). The URL is looked up again for every request, so if you reconfigure PowerAuth, the next request uses the new URL. If PowerAuth is not configured, the request fails with an error.
 
 ## Endpoint Definition
 
@@ -199,7 +205,7 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
-- `requestProcessor` - optional request processor that can modify the request before it is sent to the server
+- `requestProcessor` - optional request processor that can modify the request before it is sent to the server. For encrypted requests, the body is a `Uint8Array` and must not be JSON-encoded.
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -309,9 +315,65 @@ You can enable or disable time logging via the `includeTime` property. The defau
 
 In case you want to process logs on your own (for example log into a file or some cloud service), you can set `WPNLoggerConfig.listener`.
 
+## Migration to PowerAuth Mobile JS SDK 5.0
+
+This version of the library works only with PowerAuth Mobile JS SDK 5.0.0. Follow the steps below when you upgrade from version 1.0.x.
+
+### 1. Upgrade PowerAuth first
+
+Most of the work is on the PowerAuth side. Follow the [PowerAuth Mobile JS SDK 5.0 migration guide](https://github.com/wultra/react-native-powerauth-mobile-sdk/blob/develop/docs/Version-5.0.md). It explains:
+
+- which PowerAuth Server version you need for the algorithm you configure,
+- how to upgrade existing user activations to the new protocol,
+- the changed handling of activation QR codes (the code's signature suffix is no longer verified).
+
+This library does not create, change, or upgrade activations. Your existing endpoint definitions and `call()` usage stay the same.
+
+### 2. Update dependencies and platforms
+
+- __React Native__: install PowerAuth Mobile JS SDK 5.0.0 and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
+- __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 13.0+ are required.
+
+### 3. Handle a missing base URL when calling
+
+When you create `WPNNetworking` without `baseURL`, the URL is read from the PowerAuth configuration. The constructor no longer throws when the URL is missing. The error is reported by the `call()` instead.
+
+```typescript
+// Before: the constructor threw an exception.
+// Now: the constructor succeeds and the call is rejected.
+const networking = new WPNNetworking(pa)
+try {
+    const response = await networking.call(endpoint, requestData, auth)
+} catch (error) {
+    // WPNException "WPNNetworking: Base URL not provided." or a PowerAuth configuration error
+}
+```
+
+### 4. Check request processors of encrypted endpoints
+
+If you pass a `requestProcessor` to `call()` for an end-to-end encrypted endpoint, the request body is now a `Uint8Array` with encrypted bytes, not a JSON string. You can still add or change headers. Do not read, parse, or replace the body, otherwise the server cannot decrypt the request.
+
+### 5. Check error handling of encrypted endpoints
+
+When the server rejects an encrypted request with an HTTP error, the library no longer tries to decrypt the response.
+
+- If the server returns a standard error response, `call()` resolves with `status` set to `"ERROR"` and the error in `responseError`, same as for unencrypted endpoints.
+- Any other failed response rejects the call.
+
+## Development verification
+
+Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
+
+
 ## Changelog
 
 ### TBA
+
+- The library now requires PowerAuth Mobile JS SDK 5.0.0 and does not work with older versions. See [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50). ([#56](https://github.com/wultra/networking-js/pull/56))
+- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 13.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56))
+- Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
+- Custom request processors now receive the body of encrypted requests as raw bytes instead of text. Processors that read or change this body stop working. ([#56](https://github.com/wultra/networking-js/pull/56))
+- When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1
 

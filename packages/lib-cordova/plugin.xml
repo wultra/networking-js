@@ -13,8 +13,8 @@
         <engine name="cordova-android" version=">=12.0.0" />
         <engine name="cordova-ios" version=">=7.0.0" />
     </engines>
-    <dependency id="cordova-powerauth-mobile-sdk" version="4.1.0" />
-    <platform name="android" kotlin="1.9.22">
+    <dependency id="cordova-powerauth-mobile-sdk" version="5.0.0" url="https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-1/cordova-powerauth-mobile-sdk-5.0.0.tgz" />
+    <platform name="android" kotlin="2.1.20">
     </platform>
     <platform name="ios">
     </platform>
