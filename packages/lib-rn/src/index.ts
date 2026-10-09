@@ -10,6 +10,7 @@ import { WPNRNPlatformUtilsProvider } from "./WPNRNPlatformUtilsProvider"
 
 // SHARED EXPORTS
 
+export * from "../../lib-shared/src/WPNConfig"
 export * from "../../lib-shared/src/WPNEndpoint"
 export * from "../../lib-shared/src/WPNException"
 export * from "../../lib-shared/src/WPNKnownRestApiError"
@@ -21,7 +22,6 @@ export { WPNUserAgent } from "../../lib-shared/src/WPNUserAgent"
 // REACT NATIVE SPECIFIC EXPORTS
 
 export { WPNNetworking } from "./WPNRNNetworking"
-export { WPNRequestProcessor } from "../../lib-shared/src/WPNNetworkingBase"
 
 // REACT NATIVE SPECIFIC IMPLEMENTATIONS
 
