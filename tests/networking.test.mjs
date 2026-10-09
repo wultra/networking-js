@@ -109,22 +109,79 @@ for (const platform of ['rn', 'cordova']) {
                 assert.equal(request.headers.get('User-Agent'), null)
                 return new Response(ok)
             })
-            const service = new sdk.WPNNetworking({}, baseURL, undefined, sdk.WPNUserAgent.SYSTEM_DEFAULT)
+            const service = new sdk.WPNNetworking({}, { baseURL, userAgent: sdk.WPNUserAgent.SYSTEM_DEFAULT })
             assert.equal(JSON.stringify((await service.call(sdk.WPNEndpoint.unsigned(path), payload)).responseObject), JSON.stringify(payload))
         })
     }
 
-    test(`${platform}: sends the request returned by the request processor`, async () => {
+    test(`${platform}: applies request interceptors in declaration order to the previous result`, async () => {
+        const calls = []
         const replacement = { method: 'POST', headers: new Headers({ 'X-Custom': 'yes' }), body: '{"modified":true}' }
         const sdk = await load(platform, async (_url, request) => {
             assert.equal(request, replacement)
+            assert.deepEqual([...request.headers], [['x-custom', 'yes'], ['x-first', '1'], ['x-order', 'second']])
             return new Response(ok)
         })
-        const service = new sdk.WPNNetworking({}, 'https://example.test', undefined, 'test')
-        await service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, request => {
-            assert.equal(request.body, JSON.stringify(payload))
-            return replacement
+        const requestInterceptors = [
+            request => {
+                calls.push('first')
+                assert.equal(request.body, JSON.stringify(payload))
+                assert.equal(request.headers.get('Content-Type'), 'application/json')
+                request.headers.set('X-First', '1')
+                request.headers.set('X-Order', 'first')
+                return request
+            },
+            request => {
+                calls.push('second')
+                assert.equal(request.headers.get('X-First'), '1')
+                request.headers.set('X-Order', 'second')
+                return request
+            },
+            request => {
+                calls.push('replace')
+                for (const [key, value] of request.headers) if (key.startsWith('x-')) replacement.headers.set(key, value)
+                return replacement
+            }
+        ]
+        const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors })
+        await service.call(sdk.WPNEndpoint.unsigned('/x'), payload)
+        assert.deepEqual(calls, ['first', 'second', 'replace'])
+    })
+
+    test(`${platform}: sends the unmodified request without interceptors`, async () => {
+        for (const requestInterceptors of [undefined, []]) {
+            const sdk = await load(platform, async (_url, request) => {
+                assert.deepEqual(Object.keys(request), ['method', 'headers', 'body'])
+                assert.deepEqual([...request.headers], [['accept', 'application/json'], ['accept-language', 'en'], ['content-type', 'application/json'], ['user-agent', 'test']])
+                assert.equal(request.body, JSON.stringify(payload))
+                return new Response(ok)
+            })
+            await new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors }).call(sdk.WPNEndpoint.unsigned('/x'), payload)
+        }
+    })
+
+    test(`${platform}: configuration cannot be changed after construction`, async () => {
+        const calls = []
+        const sdk = await load(platform, async (url, request) => {
+            assert.equal(url, 'https://example.test/x')
+            assert.equal(request.headers.get('Accept-Language'), 'en')
+            return new Response(ok)
         })
+        const config = { baseURL: 'https://example.test', requestInterceptors: [request => { calls.push('configured'); return request }] }
+        const service = new sdk.WPNNetworking({}, config)
+        config.requestInterceptors.push(() => assert.fail('added interceptor must not run'))
+        config.requestInterceptors = [() => assert.fail('replaced interceptors must not run')]
+        config.baseURL = 'https://changed.test'
+        config.acceptLanguage = 'de'
+        await service.call(sdk.WPNEndpoint.unsigned('/x'), payload)
+        assert.deepEqual(calls, ['configured'])
+    })
+
+    test(`${platform}: rejects a non-object configuration`, async () => {
+        const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+        for (const config of ['https://example.test', null]) {
+            assert.throws(() => new sdk.WPNNetworking({}, config), error => error instanceof sdk.WPNException && /WPNConfig object/.test(error.description))
+        }
     })
 
     test(`${platform}: formats the default user-agent from environment data`, async () => {
@@ -132,7 +189,7 @@ for (const platform of ['rn', 'cordova']) {
             assert.match(request.headers.get('User-Agent'), /^PowerAuthNetworkingJS\/\S+ unknown\/0\.0 \(Apple; iOS\/18; test\)$/)
             return new Response(ok)
         })
-        await new sdk.WPNNetworking({}, 'https://example.test').call(sdk.WPNEndpoint.unsigned('/x'), payload)
+        await new sdk.WPNNetworking({}, { baseURL: 'https://example.test' }).call(sdk.WPNEndpoint.unsigned('/x'), payload)
     })
 
     for (const [name, body, error] of [
@@ -146,7 +203,7 @@ for (const platform of ['rn', 'cordova']) {
     ]) {
         test(`${platform}: parses ${name}`, async () => {
             const sdk = await load(platform, async () => new Response(body))
-            const call = new sdk.WPNNetworking({}, 'https://example.test', undefined, 'test').call(sdk.WPNEndpoint.unsigned('/x'), payload)
+            const call = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test' }).call(sdk.WPNEndpoint.unsigned('/x'), payload)
             if (error) {
                 await assert.rejects(call, actual => error.test(actual.description ?? actual.message))
             } else {
@@ -162,7 +219,7 @@ for (const platform of ['rn', 'cordova']) {
     for (const kind of ['signed', 'signedWithToken']) {
         test(`${platform}: rejects missing authentication for ${kind} before dispatch`, async () => {
             const sdk = await load(platform, async () => assert.fail('request must not be sent'))
-            const service = new sdk.WPNNetworking({}, 'https://example.test')
+            const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test' })
             assert.throws(() => service.call(sdk.WPNEndpoint[kind]('/x', 'identifier'), payload), error => /Authentication object/.test(error.description))
         })
     }
@@ -176,21 +233,27 @@ for (const platform of ['rn', 'cordova']) {
                     return new Response(scope === 'none' ? ok : responseBytes)
                 })
                 const { pa, state } = powerAuthStub()
-                const service = new sdk.WPNNetworking(pa, undefined, 'cs', 'test-agent')
                 const e2ee = { none: sdk.WPNE2EEConfiguration.NOT_ENCRYPTED, application: sdk.WPNE2EEConfiguration.APPLICATION_SCOPE, activation: sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE }[scope]
                 const endpoint = kind === 'signed' ? sdk.WPNEndpoint.signed('/data', '/uri-id', undefined, e2ee)
                     : kind === 'token' ? sdk.WPNEndpoint.signedWithToken('/data', 'token-name', undefined, e2ee)
                     : sdk.WPNEndpoint.unsigned('/data', undefined, e2ee)
                 const auth = kind === 'unsigned' ? undefined : { factor: 'password' }
-                const result = await service.call(endpoint, payload, auth, request => {
-                    request.headers.set('X-Processor', 'yes')
+                let intercepted
+                const service = new sdk.WPNNetworking(pa, { acceptLanguage: 'cs', userAgent: 'test-agent', requestInterceptors: [request => {
+                    intercepted = { headers: [...request.headers], body: request.body, events: state.events.map(event => event[0]) }
+                    request.headers.set('X-Interceptor', 'yes')
                     return request
-                })
+                }] })
+                const result = await service.call(endpoint, payload, auth)
                 assert.equal(JSON.stringify(result.responseObject), JSON.stringify(payload))
+                // Interceptor sees the final authenticated and encrypted request.
+                assert.deepEqual([...sent.request.headers].filter(([key]) => key !== 'x-interceptor'), intercepted.headers)
+                assert.equal(intercepted.body, sent.request.body)
+                assert.deepEqual(intercepted.events, state.events.map(event => event[0]).filter(event => event !== 'decrypt'))
                 assert.equal(state.configurationReads, 1)
                 assert.equal(sent.url, 'https://example.test/api/data')
                 assert.equal(sent.request.method, 'POST')
-                for (const [key, value] of Object.entries({ 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'cs', 'User-Agent': 'test-agent', 'X-Processor': 'yes' })) assert.equal(sent.request.headers.get(key), value)
+                for (const [key, value] of Object.entries({ 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'cs', 'User-Agent': 'test-agent', 'X-Interceptor': 'yes' })) assert.equal(sent.request.headers.get(key), value)
                 assert.equal(sent.request.headers.get('X-PowerAuth-Authorization'), kind === 'signed' ? 'auth' : null)
                 assert.equal(sent.request.headers.get('X-PowerAuth-Token'), kind === 'token' ? 'token' : null)
                 if (kind === 'signed') {
@@ -217,7 +280,7 @@ for (const platform of ['rn', 'cordova']) {
         let finishAuthentication
         pa.authenticationHeaderForRequestWithBody = () => new Promise(resolve => { finishAuthentication = resolve })
         const sdk = await load(platform, async () => new Response(responseBytes))
-        const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
         const call = service.call(sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE), payload, {})
         await new Promise(setImmediate)
         assert.equal(state.encryptors.length, 0)
@@ -226,22 +289,36 @@ for (const platform of ['rn', 'cordova']) {
         assert.equal(state.encryptors[0].released, 1)
     })
 
-    for (const failure of ['acquire', 'sign', 'encrypt', 'processor', 'fetch', 'read', 'decrypt']) {
+    for (const failure of ['acquire', 'sign', 'encrypt', 'interceptor', 'fetch', 'read', 'decrypt']) {
         test(`${platform}: propagates ${failure} failures and releases request resources`, async () => {
             const error = new Error(failure)
             const overrides = { [`${failure}Error`]: error }
             const { pa, state } = powerAuthStub(overrides)
             const sdk = await load(platform, async () => {
                 if (failure === 'fetch') throw error
+                if (failure === 'interceptor') assert.fail('request must not be sent')
                 if (failure === 'read') return { ok: true, arrayBuffer: async () => { throw error } }
                 return new Response(responseBytes)
             })
-            const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+            const requestInterceptors = failure === 'interceptor' ? [() => { throw error }] : []
+            const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors })
             const endpoint = sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE)
-            const call = service.call(endpoint, payload, {}, failure === 'processor' ? () => { throw error } : undefined)
+            const call = service.call(endpoint, payload, {})
             await assert.rejects(call, actual => actual === error)
             assert.equal(state.encryptors.length, ['acquire', 'sign'].includes(failure) ? 0 : 1)
             for (const encryptor of state.encryptors) assert.equal(encryptor.released, 1)
+        })
+    }
+
+    for (const [name, interceptor] of [['Promise', async request => request], ['rejected Promise', async () => { throw new Error('async') }], ['missing', () => undefined]]) {
+        test(`${platform}: rejects a ${name} interceptor result before dispatch and releases request resources`, async () => {
+            const { pa, state } = powerAuthStub()
+            const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+            const requestInterceptors = [interceptor, () => assert.fail('next interceptor must not run')]
+            const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors })
+            const call = service.call(sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE), payload, {})
+            await assert.rejects(call, actual => actual instanceof sdk.WPNException && /synchronously return a RequestInit/.test(actual.description))
+            assert.equal(state.encryptors[0].released, 1)
         })
     }
 
@@ -250,7 +327,7 @@ for (const platform of ['rn', 'cordova']) {
             const originalError = new Error('decrypt')
             const { pa, state } = powerAuthStub({ decryptError: originalError })
             const sdk = await load(platform, async () => new Response(body))
-            const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+            const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
             const endpoint = sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE)
             const call = service.call(endpoint, payload, undefined)
             if (body.includes('Zamítnuto')) {
@@ -272,7 +349,7 @@ for (const platform of ['rn', 'cordova']) {
         test(`${platform}: unsuccessful encrypted HTTP response never reaches decryptor (${body.slice(0, 20)})`, async () => {
             const { pa, state } = powerAuthStub()
             const sdk = await load(platform, async () => new Response(body, { status: 400 }))
-            const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+            const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
             const call = service.call(sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE), payload, undefined)
             if (error) {
                 await assert.rejects(call, actual => actual instanceof sdk.WPNException && error.test(actual.description))
@@ -291,7 +368,7 @@ for (const platform of ['rn', 'cordova']) {
         const sdk = await load(platform, async () => new Response(status === 200 ? responseBytes : '{"status":"ERROR","responseObject":{"code":"E"}}', { status }), { console: silentConsole })
         sdk.WPNLoggerConfig.verbosity = sdk.WPNLoggerVerbosity.VERBOSE
         sdk.WPNLoggerConfig.listener = { log: message => messages.push(message) }
-        const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
         const endpoint = sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE)
         await service.call(endpoint, payload, undefined)
         assert.ok(messages.includes('ENCRYPTED BODY: ' + Buffer.from(encryptedBody).toString('base64')))
@@ -304,13 +381,24 @@ for (const platform of ['rn', 'cordova']) {
         sdk.WPNLoggerConfig.listener = undefined
     })
 
+    test(`${platform}: logs the request returned by interceptors`, async () => {
+        const messages = []
+        const sdk = await load(platform, async () => new Response(ok), { console: { log() {} } })
+        sdk.WPNLoggerConfig.verbosity = sdk.WPNLoggerVerbosity.VERBOSE
+        sdk.WPNLoggerConfig.listener = { log: message => messages.push(message) }
+        const requestInterceptors = [request => ({ ...request, headers: { 'X-Correlation-ID': 'abc' }, body: '{"intercepted":true}' })]
+        await new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors }).call(sdk.WPNEndpoint.unsigned('/x'), payload)
+        sdk.WPNLoggerConfig.listener = undefined
+        assert.deepEqual(messages.slice(0, 3), [' -> POST https://example.test/x', 'Headers: { "x-correlation-id:" "abc",}', '{"intercepted":true}'])
+    })
+
     test(`${platform}: explicit URL bypasses async configuration; missing implicit URL rejects the call`, async () => {
         const sdk = await load(platform, async () => new Response(ok))
         const { pa, state } = powerAuthStub({ configuration: () => Promise.resolve({}) })
         const endpoint = sdk.WPNEndpoint.unsigned('/x')
-        await new sdk.WPNNetworking(pa, 'https://explicit.test/', undefined, 'test').call(endpoint, payload, undefined)
+        await new sdk.WPNNetworking(pa, { baseURL: 'https://explicit.test/', userAgent: 'test' }).call(endpoint, payload, undefined)
         assert.equal(state.configurationReads, 0)
-        const service = new sdk.WPNNetworking(pa, undefined, undefined, 'test')
+        const service = new sdk.WPNNetworking(pa, { userAgent: 'test' })
         await assert.rejects(service.call(endpoint, payload, undefined), error => /Base URL not provided/.test(error.description))
         assert.equal(state.configurationReads, 1)
     })
@@ -319,7 +407,7 @@ for (const platform of ['rn', 'cordova']) {
         const error = new Error('configuration unavailable')
         const { pa, state } = powerAuthStub({ configuration: () => Promise.reject(error) })
         const sdk = await load(platform, async () => assert.fail('fetch should not run'))
-        const service = new sdk.WPNNetworking(pa, undefined, undefined, 'test')
+        const service = new sdk.WPNNetworking(pa, { userAgent: 'test' })
         assert.equal(state.configurationReads, 0)
         await assert.rejects(service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined), actual => actual === error)
     })
@@ -327,7 +415,7 @@ for (const platform of ['rn', 'cordova']) {
     test(`${platform}: converts configured date fields and leaves other strings unchanged`, async () => {
         const date = '2026-09-18T10:00:00Z'
         const sdk = await load(platform, async () => new Response(JSON.stringify({ status: 'OK', responseObject: { date, text: date } })))
-        const service = new sdk.WPNNetworking({}, 'https://example.test', undefined, 'test')
+        const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test' })
         const result = await service.call(sdk.WPNEndpoint.unsigned('/x', new sdk.WPNResponseConfig(['date'])), payload)
         assert.equal(result.responseObject.date.toISOString(), date.replace('Z', '.000Z'))
         assert.equal(result.responseObject.text, date)
@@ -336,7 +424,7 @@ for (const platform of ['rn', 'cordova']) {
     test(`${platform}: concurrent calls keep separate request resources`, async () => {
         const { pa, state } = powerAuthStub()
         const sdk = await load(platform, async () => new Response(responseBytes))
-        const service = new sdk.WPNNetworking(pa, 'https://example.test', undefined, 'test')
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
         const endpoint = sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE)
         await Promise.all([service.call(endpoint, payload, {}), service.call(endpoint, payload, {})])
         assert.equal(state.encryptors.length, 2)
@@ -358,12 +446,14 @@ for (const platform of ['rn', 'cordova']) {
         try {
             const sdk = await load(platform, fetch)
             const { pa, state } = powerAuthStub()
-            const service = new sdk.WPNNetworking(pa, `http://127.0.0.1:${server.address().port}`, undefined, 'test')
+            const requestInterceptors = [request => { request.headers.set('X-Correlation-ID', 'correlation'); return request }]
+            const service = new sdk.WPNNetworking(pa, { baseURL: `http://127.0.0.1:${server.address().port}`, userAgent: 'test', requestInterceptors })
             const plain = await service.call(sdk.WPNEndpoint.unsigned('/json'), payload)
             assert.deepEqual(received.body, Buffer.from(JSON.stringify(payload)))
             assert.equal(received.method, 'POST')
             assert.equal(received.headers['content-type'], 'application/json')
             assert.equal(received.headers['accept-language'], 'en')
+            assert.equal(received.headers['x-correlation-id'], 'correlation')
             assert.equal(JSON.stringify(plain.responseObject), JSON.stringify(payload))
             const error = await service.call(sdk.WPNEndpoint.unsigned('/error'), payload)
             assert.equal(error.status, 'ERROR')
@@ -372,6 +462,7 @@ for (const platform of ['rn', 'cordova']) {
             const result = await service.call(sdk.WPNEndpoint.unsigned('/bytes', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE), payload, undefined)
             assert.deepEqual(received.body, Buffer.from(encryptedBody))
             assert.equal(received.headers['x-powerauth-encryption'], 'application')
+            assert.equal(received.headers['x-correlation-id'], 'correlation')
             assert.equal(received.url, '/bytes')
             assert.equal(JSON.stringify(result.responseObject), JSON.stringify(payload))
             assert.equal(state.encryptors[0].released, 1)

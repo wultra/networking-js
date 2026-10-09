@@ -11,9 +11,8 @@ import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
 import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
 import { WPNEndpoint, WPNEndpointType } from "./WPNEndpoint"
 import { decodeBase64, encodeBase64, decodeBase64Bytes, encodeBase64Bytes } from "./WPNBase64"
+import { WPNConfig, WPNRequestInterceptor } from "./WPNConfig"
 
-/** Function to process requests before sending */
-export type WPNRequestProcessor = (request: RequestInit) => RequestInit
 /** Authentication token to be added to the request headers */
 export type WPNAuthToken = { key: string, value: string } | undefined
 
@@ -29,7 +28,7 @@ export abstract class WPNNetworkingBase {
      * Response texts are based on this setting. For example when "de" is set, server
      * will return operation texts in german (if available).
      */
-    acceptLanguage = "en"
+    acceptLanguage: string
 
     /**
      * User-Agent string for the outgoing requests headers.
@@ -38,26 +37,27 @@ export abstract class WPNNetworkingBase {
      * 
      * Standard RFC "User-Agent" https://tools.ietf.org/html/rfc7231#section-5.5.3
      */
-    userAgent: WPNUserAgent | string = WPNUserAgent.LIBRARY_DEFAULT
+    userAgent: WPNUserAgent | string
 
-    private baseURL: string | (() => Promise<string>)
+    private readonly baseURL: string | (() => Promise<string>)
+    private readonly requestInterceptors: readonly WPNRequestInterceptor[]
 
-    protected constructor(baseURL: string | (() => Promise<string>), acceptLanguage?: string, userAgent?: WPNUserAgent | string) {
-        this.baseURL = baseURL
-        if (acceptLanguage) {
-            this.acceptLanguage = acceptLanguage
+    protected constructor(config: WPNConfig, defaultBaseURL: () => Promise<string>) {
+        // Reject the removed positional arguments, e.g. `new WPNNetworking(pa, "https://...")`, from untyped callers.
+        if (typeof config !== "object" || config === null) {
+            throw new WPNException("WPNNetworking: Configuration must be a WPNConfig object.")
         }
-        if (userAgent) {
-            this.userAgent = userAgent
-        }
+        this.baseURL = config.baseURL || defaultBaseURL
+        this.acceptLanguage = config.acceptLanguage || "en"
+        this.userAgent = config.userAgent || WPNUserAgent.LIBRARY_DEFAULT
+        this.requestInterceptors = Object.freeze((config.requestInterceptors || []).slice())
     }
 
     protected async callInternal<TRequest, TResponse>(
         requestData: TRequest, 
         endpoint: WPNEndpoint<TRequest, TResponse>,
         sign: (body: string) => Promise<WPNAuthToken>,
-        signWithToken: () => Promise<WPNAuthToken>,
-        requestProcessor?: WPNRequestProcessor
+        signWithToken: () => Promise<WPNAuthToken>
     ): Promise<WPNResponse<TResponse>> {
 
         // prepare URL, body and headers
@@ -95,24 +95,25 @@ export abstract class WPNNetworkingBase {
         try {
             const requestBody = await this.encryptRequest(requestSerialized, endpoint, encryptor, headers)
 
-            // Create the request object
-            let request: RequestInit = {
-                method: endpoint.method,
-                headers: headers,
-                body: requestBody
-            }
+            // Interceptors receive the final request, including authorization and encryption.
+            const request = this.requestInterceptors.reduce<RequestInit>((current, intercept) => {
+                const next = intercept(current)
+                // Untyped callers could return nothing or a Promise, which fetch would send as an empty GET.
+                if (!next || typeof (next as PromiseLike<unknown>).then === "function") {
+                    Promise.resolve(next).catch(() => {}) // the call fails below, avoid an unhandled rejection
+                    throw new WPNException("WPNNetworking: Request interceptor must synchronously return a RequestInit.")
+                }
+                return next
+            }, { method: endpoint.method, headers, body: requestBody })
 
-            // Allow request processor to modify the request
-            if (requestProcessor) {
-                request = requestProcessor(request)
-            }
-
-            WPNLogger.info(` -> ${endpoint.method} ${url}`)
+            WPNLogger.info(` -> ${request.method} ${url}`)
             if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
-                WPNLogger.verbose(this.getHeadersString(request.headers as Headers))
-                WPNLogger.verbose(requestSerialized)
+                WPNLogger.verbose(this.getHeadersString(new Headers(request.headers)))
                 if (encryptor) {
-                    WPNLogger.verbose("ENCRYPTED BODY: " + encodeBase64Bytes(requestBody as Uint8Array))
+                    WPNLogger.verbose(requestSerialized)
+                    WPNLogger.verbose("ENCRYPTED BODY: " + encodeBase64Bytes(request.body as Uint8Array))
+                } else {
+                    WPNLogger.verbose(request.body)
                 }
             }
 
@@ -229,9 +230,9 @@ export abstract class WPNNetworkingBase {
     protected abstract getEncryptor<TRequest, TResponse>(endpoint: WPNEndpoint<TRequest, TResponse>): Promise<WPNEncryptor | undefined>
 
     // Helper to convert headers to string for logging
-    private getHeadersString(headers: Headers | undefined): string {
+    private getHeadersString(headers: Headers): string {
         let result = "Headers: {"
-        headers?.forEach( (v: string, k: string) => {
+        headers.forEach( (v: string, k: string) => {
             result += ` "${k}:" "${v}",`
         })
         return result + "}"

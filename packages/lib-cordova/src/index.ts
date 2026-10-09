@@ -10,6 +10,7 @@ import { WPNCordovaPlatformUtilsProvider } from "./WPNCordovaPlatformUtilsProvid
 
 // SHARED EXPORTS
 
+export * from "../../lib-shared/src/WPNConfig"
 export * from "../../lib-shared/src/WPNEndpoint"
 export * from "../../lib-shared/src/WPNException"
 export * from "../../lib-shared/src/WPNKnownRestApiError"
@@ -21,7 +22,6 @@ export { WPNUserAgent } from "../../lib-shared/src/WPNUserAgent"
 // CORDOVA SPECIFIC EXPORTS
 
 export { WPNNetworking } from "./WPNCordovaNetworking"
-export { WPNRequestProcessor } from "../../lib-shared/src/WPNNetworkingBase"
 
 // CORDOVA SPECIFIC IMPLEMENTATIONS
 WPNPlatformUtils.provider = new WPNCordovaPlatformUtilsProvider()

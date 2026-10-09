@@ -26,14 +26,14 @@ This Yarn workspace publishes two API-equivalent packages:
 - `packages/lib-rn/`: `react-native-powerauth-networking`, entry point `src/index.ts`.
 - Shared public model and protocol code is in `packages/lib-shared/src/`; generated `lib/index.js` and `lib/index.d.ts` are package artifacts, not the source of a behavioral change.
 
-The two entry points export `WPNEndpoint`, `WPNException`, `WPNKnownRestApiError`, `WPNResponse`, `WPNSDKVersion`, `WPNUserAgent`, `WPNLoggerVerbosity`/`WPNLoggerConfig`, platform `WPNNetworking`, and `WPNRequestProcessor`. Flag a changed export, type, constructor, Promise result, or platform asymmetry only when it breaks this published contract.
+The two entry points export `WPNEndpoint`, `WPNException`, `WPNKnownRestApiError`, `WPNResponse`, `WPNSDKVersion`, `WPNUserAgent`, `WPNLoggerVerbosity`/`WPNLoggerConfig`, `WPNConfig`/`WPNRequestInterceptor`, and platform `WPNNetworking`. Flag a changed export, type, constructor, Promise result, or platform asymmetry only when it breaks this published contract.
 
 ## Security-critical request path
 
 Follow endpoint changes from `packages/lib-shared/src/WPNEndpoint.ts` through `WPNNetworkingBase.callInternal()` and the platform adapter (`lib-cordova/src/WPNCordovaNetworking.ts` or `lib-rn/src/WPNRNNetworking.ts`).
 
 - `WPNEndpoint.signed(path, uriId, ...)` must preserve the URI ID and PowerAuth signature; `signedWithToken(path, tokenName, ...)` must preserve the configured token; `unsigned()` must not accidentally acquire or lose authentication.
-- Preserve POST JSON serialization, `Content-Type`, `Accept`, `Accept-Language`, and user-agent behavior in `WPNNetworkingBase.ts`. A `WPNRequestProcessor` is synchronous: do not accept or silently ignore a Promise-returning processor.
+- Preserve POST JSON serialization, `Content-Type`, `Accept`, `Accept-Language`, and user-agent behavior in `WPNNetworkingBase.ts`. `WPNConfig.requestInterceptors` is copied and frozen at construction and is synchronous: do not accept or silently ignore a Promise-returning interceptor. Interceptors run in declaration order after authorization and encryption, immediately before `fetch`.
 - E2EE scope (`APPLICATION_SCOPE`, `ACTIVATION_SCOPE`, `NOT_ENCRYPTED`) determines encryptor selection. Signing is over the plaintext serialized request; encrypted request/response cryptograms and headers must remain paired with the same decryptor.
 - Error responses may be plaintext when decryption fails. Preserve the narrow fallback that parses only an `ERROR` response, then rethrows the original decryption error otherwise.
 - Do not expose request bodies, response bodies, authorization/signature/encryption headers, tokens, activation data, or cryptograms through changed logging. Verify JSON date-field parsing and `OK`/`ERROR` response mapping remain compatible.
