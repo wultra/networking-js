@@ -17,5 +17,8 @@
     <platform name="android" kotlin="2.1.20">
     </platform>
     <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <preference name="deployment-target" value="15.0" />
+        </config-file>
     </platform>
 </plugin>
