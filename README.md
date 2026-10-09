@@ -88,7 +88,7 @@ pod install
 The library is available for the following __Apache Cordova (>=12.0.0)__ platforms:
 
 - __Android 7.0 (API 24)__ and newer (cordova-android version >=12.0.0)
-- __iOS 13.0__ and newer (cordova-ios version >=7.0.0)
+- __iOS 15.0__ and newer (cordova-ios version >=7.0.0)
 
 #### How To Install
 
@@ -332,7 +332,7 @@ This library does not create, change, or upgrade activations. Your existing endp
 ### 2. Update dependencies and platforms
 
 - __React Native__: install PowerAuth Mobile JS SDK 5.0.0 and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
-- __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 13.0+ are required.
+- __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 15.0+ are required. The plugin sets the `deployment-target` preference to `15.0`. If your `config.xml` sets a lower value, raise it.
 
 ### 3. Handle a missing base URL when calling
 
@@ -370,7 +370,7 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 ### TBA
 
 - The library now requires PowerAuth Mobile JS SDK 5.0.0 and does not work with older versions. See [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50). ([#56](https://github.com/wultra/networking-js/pull/56))
-- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 13.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56))
+- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 15.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56), [#65](https://github.com/wultra/networking-js/pull/65))
 - Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
 - Custom request processors now receive the body of encrypted requests as raw bytes instead of text. Processors that read or change this body stop working. ([#56](https://github.com/wultra/networking-js/pull/56))
 - When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
