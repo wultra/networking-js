@@ -116,8 +116,9 @@ for (const platform of ['rn', 'cordova']) {
 
     test(`${platform}: applies request interceptors in declaration order to the previous result`, async () => {
         const calls = []
-        const replacement = { method: 'POST', headers: new Headers({ 'X-Custom': 'yes' }), body: '{"modified":true}' }
-        const sdk = await load(platform, async (_url, request) => {
+        const replacement = { url: 'https://other.test/y', method: 'POST', headers: new Headers({ 'X-Custom': 'yes' }), body: '{"modified":true}' }
+        const sdk = await load(platform, async (url, request) => {
+            assert.equal(url, replacement.url)
             assert.equal(request, replacement)
             assert.deepEqual([...request.headers], [['x-custom', 'yes'], ['x-first', '1'], ['x-order', 'second']])
             return new Response(ok)
@@ -125,6 +126,7 @@ for (const platform of ['rn', 'cordova']) {
         const requestInterceptors = [
             request => {
                 calls.push('first')
+                assert.equal(request.url, 'https://example.test/x')
                 assert.equal(request.body, JSON.stringify(payload))
                 assert.equal(request.headers.get('Content-Type'), 'application/json')
                 request.headers.set('X-First', '1')
@@ -150,8 +152,9 @@ for (const platform of ['rn', 'cordova']) {
 
     test(`${platform}: sends the unmodified request without interceptors`, async () => {
         for (const requestInterceptors of [undefined, []]) {
-            const sdk = await load(platform, async (_url, request) => {
-                assert.deepEqual(Object.keys(request), ['method', 'headers', 'body'])
+            const sdk = await load(platform, async (url, request) => {
+                assert.equal(url, 'https://example.test/x')
+                assert.deepEqual(Object.keys(request), ['url', 'method', 'headers', 'body'])
                 assert.deepEqual([...request.headers], [['accept', 'application/json'], ['accept-language', 'en'], ['content-type', 'application/json'], ['user-agent', 'test']])
                 assert.equal(request.body, JSON.stringify(payload))
                 return new Response(ok)
@@ -310,14 +313,14 @@ for (const platform of ['rn', 'cordova']) {
         })
     }
 
-    for (const [name, interceptor] of [['Promise', async request => request], ['rejected Promise', async () => { throw new Error('async') }], ['missing', () => undefined]]) {
+    for (const [name, interceptor] of [['Promise', async request => request], ['rejected Promise', async () => { throw new Error('async') }], ['missing', () => undefined], ['URL-less', ({ url, ...rest }) => rest], ['URL-bearing rejected Promise', request => Object.assign(Promise.reject(new Error('async')), { url: request.url })]]) {
         test(`${platform}: rejects a ${name} interceptor result before dispatch and releases request resources`, async () => {
             const { pa, state } = powerAuthStub()
             const sdk = await load(platform, async () => assert.fail('request must not be sent'))
             const requestInterceptors = [interceptor, () => assert.fail('next interceptor must not run')]
             const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors })
             const call = service.call(sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE), payload, {})
-            await assert.rejects(call, actual => actual instanceof sdk.WPNException && /synchronously return a RequestInit/.test(actual.description))
+            await assert.rejects(call, actual => actual instanceof sdk.WPNException && /synchronously return a request with a URL/.test(actual.description))
             assert.equal(state.encryptors[0].released, 1)
         })
     }
@@ -386,10 +389,11 @@ for (const platform of ['rn', 'cordova']) {
         const sdk = await load(platform, async () => new Response(ok), { console: { log() {} } })
         sdk.WPNLoggerConfig.verbosity = sdk.WPNLoggerVerbosity.VERBOSE
         sdk.WPNLoggerConfig.listener = { log: message => messages.push(message) }
-        const requestInterceptors = [request => ({ ...request, headers: { 'X-Correlation-ID': 'abc' }, body: '{"intercepted":true}' })]
+        const requestInterceptors = [request => ({ ...request, url: 'https://other.test/y', headers: { 'X-Correlation-ID': 'abc' }, body: '{"intercepted":true}' })]
         await new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', requestInterceptors }).call(sdk.WPNEndpoint.unsigned('/x'), payload)
         sdk.WPNLoggerConfig.listener = undefined
-        assert.deepEqual(messages.slice(0, 3), [' -> POST https://example.test/x', 'Headers: { "x-correlation-id:" "abc",}', '{"intercepted":true}'])
+        assert.deepEqual(messages.slice(0, 3), [' -> POST https://other.test/y', 'Headers: { "x-correlation-id:" "abc",}', '{"intercepted":true}'])
+        assert.ok(messages.includes(' <- POST https://other.test/y - 200'))
     })
 
     test(`${platform}: explicit URL bypasses async configuration; missing implicit URL rejects the call`, async () => {

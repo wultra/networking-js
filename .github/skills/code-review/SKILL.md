@@ -26,7 +26,7 @@ This Yarn workspace publishes two API-equivalent packages:
 - `packages/lib-rn/`: `react-native-powerauth-networking`, entry point `src/index.ts`.
 - Shared public model and protocol code is in `packages/lib-shared/src/`; generated `lib/index.js` and `lib/index.d.ts` are package artifacts, not the source of a behavioral change.
 
-The two entry points export `WPNEndpoint`, `WPNException`, `WPNKnownRestApiError`, `WPNResponse`, `WPNSDKVersion`, `WPNUserAgent`, `WPNLoggerVerbosity`/`WPNLoggerConfig`, `WPNConfig`/`WPNRequestInterceptor`, and platform `WPNNetworking`. Flag a changed export, type, constructor, Promise result, or platform asymmetry only when it breaks this published contract.
+The two entry points export `WPNEndpoint`, `WPNException`, `WPNKnownRestApiError`, `WPNResponse`, `WPNSDKVersion`, `WPNUserAgent`, `WPNLoggerVerbosity`/`WPNLoggerConfig`, `WPNConfig`/`WPNRequest`/`WPNRequestInterceptor`, and platform `WPNNetworking`. Flag a changed export, type, constructor, Promise result, or platform asymmetry only when it breaks this published contract.
 
 ## Security-critical request path
 

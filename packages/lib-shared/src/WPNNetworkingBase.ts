@@ -11,7 +11,7 @@ import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
 import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
 import { WPNEndpoint, WPNEndpointType } from "./WPNEndpoint"
 import { decodeBase64, encodeBase64, decodeBase64Bytes, encodeBase64Bytes } from "./WPNBase64"
-import { WPNConfig, WPNRequestInterceptor } from "./WPNConfig"
+import { WPNConfig, WPNRequest, WPNRequestInterceptor } from "./WPNConfig"
 
 /** Authentication token to be added to the request headers */
 export type WPNAuthToken = { key: string, value: string } | undefined
@@ -96,17 +96,17 @@ export abstract class WPNNetworkingBase {
             const requestBody = await this.encryptRequest(requestSerialized, endpoint, encryptor, headers)
 
             // Interceptors receive the final request, including authorization and encryption.
-            const request = this.requestInterceptors.reduce<RequestInit>((current, intercept) => {
+            const request = this.requestInterceptors.reduce<WPNRequest>((current, intercept) => {
                 const next = intercept(current)
-                // Untyped callers could return nothing or a Promise, which fetch would send as an empty GET.
-                if (!next || typeof (next as PromiseLike<unknown>).then === "function") {
+                // Untyped callers could return nothing, a Promise, or a request without a URL.
+                if (!next || typeof next.url !== "string" || typeof (next as { then?: unknown }).then === "function") {
                     Promise.resolve(next).catch(() => {}) // the call fails below, avoid an unhandled rejection
-                    throw new WPNException("WPNNetworking: Request interceptor must synchronously return a RequestInit.")
+                    throw new WPNException("WPNNetworking: Request interceptor must synchronously return a request with a URL.")
                 }
                 return next
-            }, { method: endpoint.method, headers, body: requestBody })
+            }, { url, method: endpoint.method, headers, body: requestBody })
 
-            WPNLogger.info(` -> ${request.method} ${url}`)
+            WPNLogger.info(` -> ${request.method} ${request.url}`)
             if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
                 WPNLogger.verbose(this.getHeadersString(new Headers(request.headers)))
                 if (encryptor) {
@@ -118,11 +118,11 @@ export abstract class WPNNetworkingBase {
             }
 
             // Fetch the result and get the response
-            const result = await fetch(url, request)
+            const result = await fetch(request.url, request)
             // Parse plaintext HTTP errors without consuming the single-use decryptor.
             if (encryptor && !result.ok) {
                 const errorBody = await result.text()
-                WPNLogger.info(` <- ${endpoint.method} ${url} - ${result.status}`)
+                WPNLogger.info(` <- ${request.method} ${request.url} - ${result.status}`)
                 if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
                     WPNLogger.verbose(this.getHeadersString(result.headers))
                     WPNLogger.verbose(errorBody)
@@ -152,7 +152,7 @@ export abstract class WPNNetworkingBase {
                     ? decodeBase64(await encryptor.decryptResponse(responseBody))
                     : responseBody
 
-                WPNLogger.info(` <- ${endpoint.method} ${url} - ${result.status}`)
+                WPNLogger.info(` <- ${request.method} ${request.url} - ${result.status}`)
                 if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
                     WPNLogger.verbose(this.getHeadersString(result.headers))
                     WPNLogger.verbose(decryptedResponse)
@@ -163,7 +163,7 @@ export abstract class WPNNetworkingBase {
 
                 return this.parseResponse(decryptedResponse, endpoint, result)
             } catch (e) {
-                WPNLogger.error(`Failed to decrypt response from ${endpoint.method} ${url}. Falling back to plain response parsing.`)
+                WPNLogger.error(`Failed to decrypt response from ${request.method} ${request.url}. Falling back to plain response parsing.`)
                 try {
                     // error responses might not be encrypted, so try to parse the response as plain, but only for error responses
                     const plainResponse = this.parseResponse<TResponse>(encryptor ? decodeBase64(responseBody) : responseBody, endpoint, result)

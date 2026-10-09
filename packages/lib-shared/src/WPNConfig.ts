@@ -7,14 +7,19 @@
 
 import { WPNUserAgent } from "./WPNUserAgent"
 
+/** Request passed to `fetch`: its options extended with the full request URL. */
+export interface WPNRequest extends RequestInit {
+    url: string
+}
+
 /**
  * Modifies the final request right before it is sent with `fetch`.
  *
  * Receives the request after default headers, PowerAuth authorization, and end-to-end encryption
  * were applied, and returns the request to send. Do not change `X-PowerAuth-*` headers or the body,
- * otherwise the server rejects the request.
+ * otherwise the server rejects the request. The PowerAuth headers are sent to the returned URL.
  */
-export type WPNRequestInterceptor = (request: RequestInit) => RequestInit
+export type WPNRequestInterceptor = (request: WPNRequest) => WPNRequest
 
 /** Configuration of `WPNNetworking`. Read once during construction. */
 export interface WPNConfig {

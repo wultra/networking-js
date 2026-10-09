@@ -258,16 +258,17 @@ We use `fetch` under the hood.
 
 ## Request Interceptors
 
-You can modify every request right before it is sent with `fetch` by configuring `WPNConfig.requestInterceptors`. An interceptor is a `WPNRequestInterceptor` function. It receives the final `RequestInit` and returns the request to send:
+You can modify every request right before it is sent with `fetch` by configuring `WPNConfig.requestInterceptors`. An interceptor is a `WPNRequestInterceptor` function. It receives the final request, which is a `RequestInit` with the full `url`, and returns the request to send:
 
 ```typescript
-type WPNRequestInterceptor = (request: RequestInit) => RequestInit
+interface WPNRequest extends RequestInit { url: string }
+type WPNRequestInterceptor = (request: WPNRequest) => WPNRequest
 ```
 
-Interceptors must return the request synchronously. Interceptors run in declaration order. Each interceptor receives the request returned by the previous one. They run after the library adds the default headers, the PowerAuth authorization header, and end-to-end encryption. Logs show the request returned by the last interceptor.
+Interceptors must return the request synchronously, including its `url`. Interceptors run in declaration order. Each interceptor receives the request returned by the previous one. They run after the library adds the default headers, the PowerAuth authorization header, and end-to-end encryption. Logs show the request returned by the last interceptor.
 
 <!-- begin box warning -->
-Do not change the `X-PowerAuth-*` headers or the request body. Otherwise, the server rejects the request. For encrypted endpoints, the body is a `Uint8Array` with encrypted bytes.
+Do not change the `X-PowerAuth-*` headers or the request body. Otherwise, the server rejects the request. For encrypted endpoints, the body is a `Uint8Array` with encrypted bytes. If you change the `url`, the request, including its PowerAuth headers, is sent to the new URL. Only point it to servers you trust.
 <!-- end -->
 
 ### Example: adding an X-Correlation-ID header
@@ -413,7 +414,7 @@ const networking = new WPNNetworking(pa, { requestInterceptors: [myProcessor] })
 await networking.call(endpoint, requestData, auth)
 ```
 
-Interceptors do not receive the URL. If you processed only some endpoints, create a separate `WPNNetworking` instance for them. For end-to-end encrypted endpoints, the body is a `Uint8Array` with encrypted bytes, see the warning in [Request Interceptors](#request-interceptors).
+Interceptors receive the full URL in `request.url`, so you can limit a processor to some endpoints by checking it. The returned request must keep the `url`, for example by spreading `{ ...request }`. For end-to-end encrypted endpoints, the body is a `Uint8Array` with encrypted bytes, see the warning in [Request Interceptors](#request-interceptors).
 
 ### 6. Check error handling of encrypted endpoints
 
@@ -435,7 +436,7 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 - Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 13.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56))
 - Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
 - `WPNNetworking` now takes a `WPNConfig` object with `baseURL`, `acceptLanguage`, `userAgent`, and `requestInterceptors` instead of separate constructor arguments. See [Pass a configuration object to the constructor](#3-pass-a-configuration-object-to-the-constructor). ([#3](https://github.com/wultra/networking-js/issues/3), [#48](https://github.com/wultra/networking-js/issues/48))
-- Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
+- Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. Interceptors receive and return a `WPNRequest`, which adds the full `url` to `RequestInit`. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
 - When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1
