@@ -370,7 +370,7 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 ### TBA
 
 - The library now requires PowerAuth Mobile JS SDK 5.0.0 and does not work with older versions. See [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50). ([#56](https://github.com/wultra/networking-js/pull/56))
-- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 15.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56), [#64](https://github.com/wultra/networking-js/issues/64))
+- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 15.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56), [#65](https://github.com/wultra/networking-js/pull/65))
 - Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
 - Custom request processors now receive the body of encrypted requests as raw bytes instead of text. Processors that read or change this body stop working. ([#56](https://github.com/wultra/networking-js/pull/56))
 - When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
