@@ -32,6 +32,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Initialization and Configuration](#initialization-and-configuration)
 - [Endpoint Definition](#endpoint-definition)
 - [Creating an HTTP request](#creating-an-http-request)
+- [Request Interceptors](#request-interceptors)
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
@@ -126,11 +127,17 @@ Example:
 
 ```typescript
 let pa: PowerAuth = ... // your PowerAuthSDK instance
-let baseURL = "https://my.backend.com/api/v3" // optional, see below
-const networking = new WPNNetworking(pa, baseURL)
+const networking = new WPNNetworking(pa, {
+    baseURL: "https://my.backend.com/api/v3", // optional, see below
+    acceptLanguage: "en", // optional, see "Language Configuration"
+    userAgent: WPNUserAgent.LIBRARY_DEFAULT, // optional, value of the User-Agent header
+    requestInterceptors: [] // optional, see "Request Interceptors"
+})
 ```
 
-The `baseURL` parameter is optional:
+All `WPNConfig` properties are optional, so `new WPNNetworking(pa)` is enough when the defaults suit you. The configuration is read once in the constructor. Changing the object afterwards has no effect.
+
+The `baseURL` property is optional:
 
 - **With `baseURL`**, all requests go to that URL, and no asynchronous configuration lookup is needed before each request.
 - **Without `baseURL`**, each request uses the server URL from your PowerAuth configuration (`baseEndpointUrl`). The URL is looked up again for every request, so if you reconfigure PowerAuth, the next request uses the new URL. If PowerAuth is not configured, the request fails with an error.
@@ -205,7 +212,6 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
-- `requestProcessor` - optional request processor that can modify the request before it is sent to the server. For encrypted requests, the body is a `Uint8Array` and must not be JSON-encoded.
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -250,6 +256,38 @@ if (response.status == "OK" && response.responseObject) {
 
 We use `fetch` under the hood.
 
+## Request Interceptors
+
+You can modify every request right before it is sent with `fetch` by configuring `WPNConfig.requestInterceptors`. An interceptor is a `WPNRequestInterceptor` function. It receives the final request, which is a `RequestInit` with the full `url`, and returns the request to send:
+
+```typescript
+interface WPNRequest extends RequestInit { url: string }
+type WPNRequestInterceptor = (request: WPNRequest) => WPNRequest
+```
+
+Interceptors must return the request synchronously, including its `url`. Interceptors run in declaration order. Each interceptor receives the request returned by the previous one. They run after the library adds the default headers, the PowerAuth authorization header, and end-to-end encryption. Logs show the request returned by the last interceptor.
+
+<!-- begin box warning -->
+Do not change the `X-PowerAuth-*` headers or the request body. Otherwise, the server rejects the request. For encrypted endpoints, the body is a `Uint8Array` with encrypted bytes. If you change the `url`, the request, including its PowerAuth headers, is sent to the new URL. Only point it to servers you trust.
+<!-- end -->
+
+### Example: adding an X-Correlation-ID header
+
+A common use case is adding a correlation ID to every request, so you can trace it across your backend services:
+
+```typescript
+const addCorrelationId: WPNRequestInterceptor = request => {
+    const headers = new Headers(request.headers)
+    headers.set("X-Correlation-ID", generateCorrelationId()) // your unique ID generator
+    return { ...request, headers }
+}
+
+const networking = new WPNNetworking(pa, {
+    baseURL: "https://my.backend.com/api/v3",
+    requestInterceptors: [addCorrelationId]
+})
+```
+
 ## Server Errors
 
 When a server returns an error, the `WPNResponse` object will contain the error information in the `responseError` property. The `status` property will be set to `"ERROR"`.
@@ -288,7 +326,7 @@ Note: Content language capabilities are limited by the implementation of the ser
 
 ### Format
 
-The default value is always `en`. With other languages, we use values compliant with standard RFC [Accept-Language](https://tools.ietf.org/html/rfc7231#section-5.3.5).
+The default value is always `en`. Set the initial value with `WPNConfig.acceptLanguage` and change it later with the `WPNNetworking.acceptLanguage` property. With other languages, we use values compliant with standard RFC [Accept-Language](https://tools.ietf.org/html/rfc7231#section-5.3.5).
 
 ## Logging
 
@@ -327,14 +365,29 @@ Most of the work is on the PowerAuth side. Follow the [PowerAuth Mobile JS SDK 5
 - how to upgrade existing user activations to the new protocol,
 - the changed handling of activation QR codes (the code's signature suffix is no longer verified).
 
-This library does not create, change, or upgrade activations. Your existing endpoint definitions and `call()` usage stay the same.
+This library does not create, change, or upgrade activations. Your existing endpoint definitions stay the same.
 
 ### 2. Update dependencies and platforms
 
 - __React Native__: install PowerAuth Mobile JS SDK 5.0.0 and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
 - __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 15.0+ are required. The plugin sets the `deployment-target` preference to `15.0`. If your `config.xml` sets a lower value, raise it.
 
-### 3. Handle a missing base URL when calling
+### 3. Pass a configuration object to the constructor
+
+`WPNNetworking` now takes a `WPNConfig` object instead of separate `baseURL`, `acceptLanguage`, and `userAgent` arguments:
+
+```typescript
+// Before
+const networking = new WPNNetworking(pa, "https://my.backend.com/api/v3", "en", WPNUserAgent.LIBRARY_DEFAULT)
+// Now
+const networking = new WPNNetworking(pa, {
+    baseURL: "https://my.backend.com/api/v3",
+    acceptLanguage: "en",
+    userAgent: WPNUserAgent.LIBRARY_DEFAULT
+})
+```
+
+### 4. Handle a missing base URL when calling
 
 When you create `WPNNetworking` without `baseURL`, the URL is read from the PowerAuth configuration. The constructor no longer throws when the URL is missing. The error is reported by the `call()` instead.
 
@@ -349,11 +402,21 @@ try {
 }
 ```
 
-### 4. Check request processors of encrypted endpoints
+### 5. Replace request processors with request interceptors
 
-If you pass a `requestProcessor` to `call()` for an end-to-end encrypted endpoint, the request body is now a `Uint8Array` with encrypted bytes, not a JSON string. You can still add or change headers. Do not read, parse, or replace the body, otherwise the server cannot decrypt the request.
+The `requestProcessor` argument of `call()` and the `WPNRequestProcessor` type were removed. Move your processor to `WPNConfig.requestInterceptors`. It then applies to every request of the `WPNNetworking` instance. See [Request Interceptors](#request-interceptors).
 
-### 5. Check error handling of encrypted endpoints
+```typescript
+// Before
+await networking.call(endpoint, requestData, auth, myProcessor)
+// Now
+const networking = new WPNNetworking(pa, { requestInterceptors: [myProcessor] })
+await networking.call(endpoint, requestData, auth)
+```
+
+Interceptors receive the full URL in `request.url`, so you can limit a processor to some endpoints by checking it. The returned request must keep the `url`, for example by spreading `{ ...request }`. For end-to-end encrypted endpoints, the body is a `Uint8Array` with encrypted bytes, see the warning in [Request Interceptors](#request-interceptors).
+
+### 6. Check error handling of encrypted endpoints
 
 When the server rejects an encrypted request with an HTTP error, the library no longer tries to decrypt the response.
 
@@ -372,7 +435,8 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 - The library now requires PowerAuth Mobile JS SDK 5.0.0 and does not work with older versions. See [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50). ([#56](https://github.com/wultra/networking-js/pull/56))
 - Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 15.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56), [#65](https://github.com/wultra/networking-js/pull/65))
 - Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
-- Custom request processors now receive the body of encrypted requests as raw bytes instead of text. Processors that read or change this body stop working. ([#56](https://github.com/wultra/networking-js/pull/56))
+- `WPNNetworking` now takes a `WPNConfig` object with `baseURL`, `acceptLanguage`, `userAgent`, and `requestInterceptors` instead of separate constructor arguments. See [Pass a configuration object to the constructor](#3-pass-a-configuration-object-to-the-constructor). ([#3](https://github.com/wultra/networking-js/issues/3), [#48](https://github.com/wultra/networking-js/issues/48))
+- Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. Interceptors receive and return a `WPNRequest`, which adds the full `url` to `RequestInit`. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
 - When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1
