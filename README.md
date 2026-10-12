@@ -430,7 +430,7 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 
 ## Changelog
 
-## 2.0.0-beta-2
+### 2.0.0-beta-2
 
 - `WPNNetworking` now takes a `WPNConfig` object with `baseURL`, `acceptLanguage`, `userAgent`, and `requestInterceptors` instead of separate constructor arguments. See [Pass a configuration object to the constructor](#3-pass-a-configuration-object-to-the-constructor). ([#3](https://github.com/wultra/networking-js/issues/3), [#48](https://github.com/wultra/networking-js/issues/48))
 - Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. Interceptors receive and return a `WPNRequest`, which adds the full `url` to `RequestInit`. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
