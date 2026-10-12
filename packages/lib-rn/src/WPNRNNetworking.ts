@@ -8,8 +8,8 @@
 import { WPNE2EEConfiguration, WPNEndpoint, WPNEndpointType } from '../../lib-shared/src/WPNEndpoint'
 import { WPNException } from '../../lib-shared/src/WPNException'
 import { WPNResponse } from '../../lib-shared/src/WPNResponse'
-import { WPNUserAgent } from '../../lib-shared/src/WPNUserAgent'
-import { WPNEncryptor, WPNNetworkingBase, WPNRequestProcessor } from '../../lib-shared/src/WPNNetworkingBase'
+import { WPNConfig } from '../../lib-shared/src/WPNConfig'
+import { WPNEncryptor, WPNNetworkingBase } from '../../lib-shared/src/WPNNetworkingBase'
 import { PowerAuth, PowerAuthAuthentication } from 'react-native-powerauth-mobile-sdk'
 
 /** Networking service for dispatching PowerAuth signed requests. */
@@ -19,21 +19,16 @@ export class WPNNetworking extends WPNNetworkingBase {
 
     /**
      * @param pa PowerAuth instance
-     * @param baseURL Base URL for the networking service (usually https://<your-server>/enrollment-server/).
-     * If omitted, the URL is read from the PowerAuth configuration on every call, so it always matches
-     * the current configuration. A call fails if PowerAuth is not configured or has no URL.
-     * Providing the URL avoids this asynchronous lookup on each call.
-     * @param acceptLanguage Accept language for the outgoing requests headers. Default is "en" when not set.
-     * @param userAgent User-Agent string for the outgoing requests headers. Default is `WPNUserAgent.LIBRARY_DEFAULT` when not set.
+     * @param config Service configuration. It is read once, later changes of the object have no effect.
      */
-    constructor(pa: PowerAuth, baseURL: string | undefined = undefined, acceptLanguage?: string, userAgent?: WPNUserAgent | string) {
-        super(baseURL || (async () => {
+    constructor(pa: PowerAuth, config: WPNConfig = {}) {
+        super(config, async () => {
             const url = (await pa.configuration)?.baseEndpointUrl
             if (!url) {
                 throw new WPNException("WPNNetworking: Base URL not provided.")
             }
             return url
-        }), acceptLanguage, userAgent)
+        })
         this.pa = pa
     }
 
@@ -44,7 +39,6 @@ export class WPNNetworking extends WPNNetworkingBase {
      * @param requestData Request data object, will be serialized to JSON
      * @param authentication PowerAuthAuthentication object defining authentication factors to be used, or undefined for unsigned requests
      * If the endpoint is signed and authentication is not provided, an exception is thrown.
-     * @param requestProcessor Optional request processor, used for custom modification of the request before it is sent
      *
      * **Type Parameters:**
      * @param TRequest Type of the request data
@@ -60,8 +54,7 @@ export class WPNNetworking extends WPNNetworkingBase {
     call<TRequest, TResponse>(
         endpoint: WPNEndpoint<TRequest, TResponse>,
         requestData: TRequest, 
-        authentication: PowerAuthAuthentication | undefined,
-        requestProcessor: WPNRequestProcessor | undefined = undefined
+        authentication: PowerAuthAuthentication | undefined
     ): Promise<WPNResponse<TResponse>> {
         // Ensure that authentication object is provided for signed requests
         if (!authentication && endpoint.type !== WPNEndpointType.UNSIGNED) {
@@ -76,8 +69,7 @@ export class WPNNetworking extends WPNNetworkingBase {
                 .then(header => ({ key: header.name, value: header.value })),
             // Signing with token function
             () => this.pa.tokenStore.requestAccessToken(endpoint.tokenName!, authentication!).then(token => this.pa.tokenStore.generateAuthenticationHeader(token.tokenName))
-                .then(header => ({ key: header.name, value: header.value })),
-            requestProcessor
+                .then(header => ({ key: header.name, value: header.value }))
         )
     }
 
