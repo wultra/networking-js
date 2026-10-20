@@ -69,7 +69,7 @@ The library is available for the following __React Native (0.87+)__ platforms:
 ##### 1. Install packages via npm
 ```sh
 # if not added yet, add PowerAuth Mobile SDK first
-npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-1/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
+npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
 npm i react-native-powerauth-networking --save
 ```
 
