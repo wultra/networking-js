@@ -430,6 +430,10 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 
 ## Changelog
 
+### 2.0.0-beta-3
+
+- The library now uses PowerAuth Mobile JS SDK 5.0.0-beta-2. For React Native, install it with the link in [React Native Installation](#react-native-installation). Cordova installs it automatically. This PowerAuth version removes the deprecated `PowerAuthAuthentication` constructor and changes the `PowerAuthPassword` constructor. See the [PowerAuth 5.0.0-beta-2 release notes](https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/tag/5.0.0-beta-2). ([#70](https://github.com/wultra/networking-js/pull/70))
+
 ### 2.0.0-beta-2
 
 - Cordova now requires iOS 15.0 or newer. The plugin sets the `deployment-target` preference to `15.0`; raise any lower value in your app's `config.xml`. ([#65](https://github.com/wultra/networking-js/pull/65))
