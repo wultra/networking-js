@@ -522,6 +522,74 @@ for (const platform of ['rn', 'cordova']) {
         assert.equal(state.encryptors.length, 0)
     })
 
+    test(`${platform}: cancelling while preparing the request does not start signing`, async () => {
+        let finishConfiguration
+        const { pa, state } = powerAuthStub({ configuration: () => new Promise(resolve => { finishConfiguration = resolve }) })
+        const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+        const controller = new AbortController()
+        const call = new sdk.WPNNetworking(pa, { userAgent: 'test' }).call(sdk.WPNEndpoint.signed('/x', '/uri'), payload, {}, { signal: controller.signal })
+        await new Promise(setImmediate)
+        controller.abort('early')
+        finishConfiguration({ baseEndpointUrl: 'https://example.test' })
+        await assert.rejects(call, isCancelled(sdk, 'early'))
+        assert.deepEqual(state.events, [])
+    })
+
+    for (const failure of ['sign', 'acquire', 'encrypt', 'decrypt']) {
+        test(`${platform}: ${failure} failure after cancellation rejects as cancelled`, async () => {
+            const controller = new AbortController()
+            const { pa, state } = powerAuthStub()
+            const fail = original => async (...args) => {
+                const result = await original(...args)
+                controller.abort('stop')
+                throw new Error(failure)
+            }
+            if (failure === 'sign') pa.authenticationHeaderForRequestWithBody = fail(pa.authenticationHeaderForRequestWithBody)
+            if (failure === 'acquire') pa.getEncryptorForActivationScope = fail(async () => {})
+            if (failure === 'encrypt' || failure === 'decrypt') {
+                const acquire = pa.getEncryptorForActivationScope
+                pa.getEncryptorForActivationScope = async () => {
+                    const encryptor = await acquire()
+                    const method = failure === 'encrypt' ? 'encryptRequest' : 'decryptResponse'
+                    encryptor[method] = fail(encryptor[method])
+                    return encryptor
+                }
+            }
+            const sdk = await load(platform, async () => new Response(responseBytes))
+            const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test', timeout: 1000 })
+            const call = service.call(sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE), payload, {}, { signal: controller.signal })
+            await assert.rejects(call, isCancelled(sdk, 'stop'))
+            for (const encryptor of state.encryptors) assert.equal(encryptor.released, 1)
+        })
+    }
+
+    test(`${platform}: cancelling during successful decryption rejects as cancelled`, async () => {
+        const controller = new AbortController()
+        const { pa, state } = powerAuthStub()
+        const acquire = pa.getEncryptorForApplicationScope
+        pa.getEncryptorForApplicationScope = async () => {
+            const encryptor = await acquire()
+            const decrypt = encryptor.decryptResponse
+            encryptor.decryptResponse = async body => { controller.abort('late'); return decrypt(body) }
+            return encryptor
+        }
+        const sdk = await load(platform, async () => new Response(responseBytes))
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
+        const call = service.call(sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE), payload, undefined, { signal: controller.signal })
+        await assert.rejects(call, isCancelled(sdk, 'late'))
+        assert.deepEqual(state.encryptors, [{ scope: 'application', released: 1, encrypted: 1, decrypted: 1 }])
+    })
+
+    test(`${platform}: cancelling after a timeout keeps the timeout error`, async () => {
+        const controller = new AbortController()
+        const sdk = await load(platform, hangingFetch())
+        const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', timeout: 10 })
+        const call = service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, { signal: controller.signal })
+        await assert.rejects(call, isTimeout(sdk, 10))
+        controller.abort()
+        await assert.rejects(call, isTimeout(sdk, 10))
+    })
+
     test(`${platform}: completed call clears its timer and signal listener`, async () => {
         const timers = { set: [], cleared: [] }
         const sdk = await load(platform, async () => new Response(ok), {
@@ -552,15 +620,18 @@ for (const platform of ['rn', 'cordova']) {
     })
 
     test(`${platform}: timeout aborts a real HTTP request`, async () => {
+        const arrived = []
         const closed = []
-        const server = createServer((req, res) => { req.on('close', () => closed.push(req.url)) })
+        const server = createServer((req, res) => { arrived.push(req.url); req.on('close', () => closed.push(req.url)) })
         server.listen(0, '127.0.0.1')
         await once(server, 'listening')
         try {
             const sdk = await load(platform, fetch)
-            const service = new sdk.WPNNetworking({}, { baseURL: `http://127.0.0.1:${server.address().port}`, userAgent: 'test', timeout: 50 })
-            await assert.rejects(service.call(sdk.WPNEndpoint.unsigned('/slow'), payload), isTimeout(sdk, 50))
-            while (closed.length === 0) await new Promise(resolve => setTimeout(resolve, 5))
+            // Long enough for the local request to arrive, so the test checks aborting an established request.
+            const service = new sdk.WPNNetworking({}, { baseURL: `http://127.0.0.1:${server.address().port}`, userAgent: 'test', timeout: 300 })
+            await assert.rejects(service.call(sdk.WPNEndpoint.unsigned('/slow'), payload), isTimeout(sdk, 300))
+            assert.deepEqual(arrived, ['/slow'])
+            for (let attempt = 0; attempt < 200 && closed.length === 0; attempt++) await new Promise(resolve => setTimeout(resolve, 5))
             assert.deepEqual(closed, ['/slow'])
         } finally {
             server.closeAllConnections()

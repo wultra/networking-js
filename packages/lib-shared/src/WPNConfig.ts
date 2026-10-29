@@ -52,8 +52,9 @@ export interface WPNCallOptions {
     /**
      * Signal that cancels the call. When it is aborted, the call rejects with `WPNCancelledException`.
      *
-     * A request in flight is aborted. If PowerAuth is signing or encrypting the request, the call rejects
-     * once that step finishes and the request is not sent.
+     * A request in flight is aborted. If PowerAuth is signing, encrypting, or decrypting, the call rejects
+     * once that step finishes, and a request that was not sent yet is not sent. Once the signal is aborted,
+     * the call rejects with `WPNCancelledException` even if a step then fails or the response arrives.
      */
     readonly signal?: AbortSignal
     /** Timeout of this call in milliseconds. Overrides `WPNConfig.timeout`. Use `0` to disable the timeout. */

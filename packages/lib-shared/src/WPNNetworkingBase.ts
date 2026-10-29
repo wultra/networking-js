@@ -65,6 +65,29 @@ export abstract class WPNNetworkingBase {
 
         const timeout = validateTimeout(options?.timeout, "WPNCallOptions.timeout") ?? this.timeout
         const signal = options?.signal
+        try {
+            const response = await this.perform(requestData, endpoint, sign, signWithToken, timeout, signal)
+            // PowerAuth steps cannot be interrupted, so honor a cancellation that happened during decryption.
+            throwIfCancelled(signal)
+            return response
+        } catch (e) {
+            // Once cancelled, report the cancellation instead of failures it caused, e.g. a rejected biometric prompt.
+            if (signal?.aborted && !(e instanceof WPNCancelledException) && !(e instanceof WPNTimeoutException)) {
+                throw new WPNCancelledException(signal.reason)
+            }
+            throw e
+        }
+    }
+
+    private async perform<TRequest, TResponse>(
+        requestData: TRequest,
+        endpoint: WPNEndpoint<TRequest, TResponse>,
+        sign: (body: string) => Promise<WPNAuthToken>,
+        signWithToken: () => Promise<WPNAuthToken>,
+        timeout: number,
+        signal: AbortSignal | undefined
+    ): Promise<WPNResponse<TResponse>> {
+
         throwIfCancelled(signal)
 
         // prepare URL, body and headers
@@ -83,6 +106,9 @@ export abstract class WPNNetworkingBase {
         if (userAgent) {
             headers.set("User-Agent", userAgent)
         }
+
+        // Do not start signing, which can show a biometric prompt, for a cancelled call.
+        throwIfCancelled(signal)
 
         // Authenticate the plaintext request body before encryption.
         let authHeader: WPNAuthToken

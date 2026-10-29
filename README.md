@@ -322,7 +322,7 @@ const call = networking.call(endpoint, requestData, auth, { signal: controller.s
 controller.abort()
 ```
 
-If you cancel while PowerAuth signs or encrypts the request, the call rejects after that step finishes, and the request is not sent. A request that is already in flight is aborted. The server might still have received and processed it.
+A request that is already in flight is aborted. PowerAuth signing, encryption, and decryption cannot be interrupted. If you cancel during one of them, the call rejects after that step finishes, and a request that was not sent yet is not sent. Once you cancel, the call always rejects with `WPNCancelledException`, even when a step then fails or the response arrives. The server might still have received and processed a request that was already sent.
 
 ### Handling Timeout and Cancellation Errors
 
