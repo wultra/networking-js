@@ -33,6 +33,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Endpoint Definition](#endpoint-definition)
 - [Creating an HTTP request](#creating-an-http-request)
 - [Request Interceptors](#request-interceptors)
+- [Timeout and Cancellation](#timeout-and-cancellation)
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
@@ -131,7 +132,8 @@ const networking = new WPNNetworking(pa, {
     baseURL: "https://my.backend.com/api/v3", // optional, see below
     acceptLanguage: "en", // optional, see "Language Configuration"
     userAgent: WPNUserAgent.LIBRARY_DEFAULT, // optional, value of the User-Agent header
-    requestInterceptors: [] // optional, see "Request Interceptors"
+    requestInterceptors: [], // optional, see "Request Interceptors"
+    timeout: 20000 // optional, in milliseconds, see "Timeout and Cancellation"
 })
 ```
 
@@ -212,6 +214,7 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
+- `options` - optional `WPNCallOptions` with a cancellation `signal` and a `timeout` of this call, see [Timeout and Cancellation](#timeout-and-cancellation)
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -271,6 +274,8 @@ Interceptors must return the request synchronously, including its `url`. Interce
 Do not change the `X-PowerAuth-*` headers or the request body. Otherwise, the server rejects the request. For encrypted endpoints, the body is a `Uint8Array` with encrypted bytes. If you change the `url`, the request, including its PowerAuth headers, is sent to the new URL. Only point it to servers you trust.
 <!-- end -->
 
+When a timeout or a cancellation signal applies to the call, the library sets the `signal` of the request after the interceptors run. A `signal` set by an interceptor is replaced. Use [Timeout and Cancellation](#timeout-and-cancellation) instead.
+
 ### Example: adding an X-Correlation-ID header
 
 A common use case is adding a correlation ID to every request, so you can trace it across your backend services:
@@ -286,6 +291,55 @@ const networking = new WPNNetworking(pa, {
     baseURL: "https://my.backend.com/api/v3",
     requestInterceptors: [addCorrelationId]
 })
+```
+
+## Timeout and Cancellation
+
+By default, requests have no timeout, so they wait as long as the platform `fetch` allows.
+
+### Timeout
+
+Set a timeout in milliseconds for all requests with `WPNConfig.timeout`, or for a single call with the `timeout` option. The call option overrides the configuration. Use `0` to disable the timeout for a call.
+
+```typescript
+const networking = new WPNNetworking(pa, { timeout: 20000 }) // 20 seconds for every request
+
+// this call waits up to 60 seconds
+const response = await networking.call(endpoint, requestData, auth, { timeout: 60000 })
+```
+
+The timeout covers sending the request and receiving the response. It does not include the PowerAuth signing and encryption before the request is sent. For example, the time the user spends on a biometric prompt does not count. When the timeout elapses, the request is aborted, and the call rejects with `WPNTimeoutException`.
+
+### Cancellation
+
+To cancel a call, pass the `signal` of an `AbortController` in the `signal` option, and call `abort()` when you no longer need the response. The call rejects with `WPNCancelledException`. Its `reason` contains the abort reason, if the platform supports it.
+
+```typescript
+const controller = new AbortController()
+const call = networking.call(endpoint, requestData, auth, { signal: controller.signal })
+
+// for example, when the user leaves the screen
+controller.abort()
+```
+
+If you cancel while PowerAuth signs or encrypts the request, the call rejects after that step finishes, and the request is not sent. A request that is already in flight is aborted. The server might still have received and processed it.
+
+### Handling Timeout and Cancellation Errors
+
+Both exceptions extend `WPNException`, so you can tell them apart from each other and from other errors:
+
+```typescript
+try {
+    const response = await networking.call(endpoint, requestData, auth, { signal: controller.signal, timeout: 10000 })
+} catch (error) {
+    if (error instanceof WPNTimeoutException) {
+        // the server did not respond within error.timeout milliseconds
+    } else if (error instanceof WPNCancelledException) {
+        // you cancelled the call, usually nothing to report
+    } else {
+        // other failure
+    }
+}
 ```
 
 ## Server Errors
@@ -425,7 +479,7 @@ When the server rejects an encrypted request with an HTTP error, the library no 
 
 ## Development verification
 
-Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
+Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport, timeout, and cancellation in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
 
 
 ## Changelog
@@ -437,6 +491,7 @@ Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.1
 - Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
 - `WPNNetworking` now takes a `WPNConfig` object with `baseURL`, `acceptLanguage`, `userAgent`, and `requestInterceptors` instead of separate constructor arguments. See [Pass a configuration object to the constructor](#3-pass-a-configuration-object-to-the-constructor). ([#3](https://github.com/wultra/networking-js/issues/3), [#48](https://github.com/wultra/networking-js/issues/48))
 - Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. Interceptors receive and return a `WPNRequest`, which adds the full `url` to `RequestInit`. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
+- You can now set a request timeout with `WPNConfig.timeout` or per call, and cancel a call with an `AbortSignal`. `call()` takes optional `WPNCallOptions` as the fourth argument. Timed out calls reject with `WPNTimeoutException` and cancelled calls with `WPNCancelledException`. See [Timeout and Cancellation](#timeout-and-cancellation). ([#10](https://github.com/wultra/networking-js/issues/10))
 - When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1

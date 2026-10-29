@@ -16,6 +16,7 @@ const ok = JSON.stringify({ status: 'OK', responseObject: payload })
 async function load(platform, fetchImpl, contextOverrides = {}) {
     const context = vm.createContext({
         Headers, Response, Uint8Array, btoa, atob, console,
+        AbortController, setTimeout, clearTimeout,
         fetch: fetchImpl,
         exports: {}, cordova: { platformId: 'ios' },
         PowerAuthUtils: { getEnvironmentInfo: async () => ({ systemName: 'iOS', systemVersion: '18', deviceManufacturer: 'Apple', deviceId: 'test', sdkVersion: '5.0.0' }) },
@@ -433,6 +434,138 @@ for (const platform of ['rn', 'cordova']) {
         await Promise.all([service.call(endpoint, payload, {}), service.call(endpoint, payload, {})])
         assert.equal(state.encryptors.length, 2)
         for (const encryptor of state.encryptors) assert.deepEqual(encryptor, { scope: 'activation', released: 1, encrypted: 1, decrypted: 1 })
+    })
+
+    // fetch that settles only when its signal aborts, like a server that never responds
+    const hangingFetch = sent => async (_url, request) => {
+        sent?.push(request)
+        return new Promise((_, reject) => request.signal?.addEventListener('abort', () => reject(new Error('aborted'))))
+    }
+    const isTimeout = (sdk, timeout) => actual => actual instanceof sdk.WPNTimeoutException && actual instanceof sdk.WPNException
+        && actual.timeout === timeout && actual.additionalData.timeout === timeout && /timed out after/.test(actual.description)
+    const isCancelled = (sdk, reason) => actual => actual instanceof sdk.WPNCancelledException && actual instanceof sdk.WPNException
+        && !(actual instanceof sdk.WPNTimeoutException) && actual.reason === reason && actual.additionalData === reason
+
+    test(`${platform}: configured timeout aborts the request and releases request resources`, async () => {
+        const sent = []
+        const { pa, state } = powerAuthStub()
+        const sdk = await load(platform, hangingFetch(sent))
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test', timeout: 20 })
+        const call = service.call(sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE), payload, {})
+        await assert.rejects(call, isTimeout(sdk, 20))
+        assert.equal(sent.length, 1)
+        assert.equal(sent[0].signal.aborted, true)
+        assert.deepEqual(state.encryptors, [{ scope: 'activation', released: 1, encrypted: 1, decrypted: 0 }])
+    })
+
+    test(`${platform}: timeout rejects even when fetch ignores the signal or the body never arrives`, async () => {
+        for (const fetchImpl of [() => new Promise(() => {}), async () => ({ ok: true, text: () => new Promise(() => {}) })]) {
+            const sdk = await load(platform, fetchImpl)
+            const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test' })
+            await assert.rejects(service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, { timeout: 15 }), isTimeout(sdk, 15))
+        }
+    })
+
+    test(`${platform}: call timeout overrides the configured timeout`, async () => {
+        const sdk = await load(platform, (_url, request) => new Promise(resolve => setTimeout(() => resolve(new Response(ok)), 40)))
+        const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', timeout: 10 })
+        const endpoint = sdk.WPNEndpoint.unsigned('/x')
+        assert.equal((await service.call(endpoint, payload, undefined, { timeout: 0 })).status, 'OK')
+        assert.equal((await service.call(endpoint, payload, undefined, { timeout: 1000 })).status, 'OK')
+        await assert.rejects(service.call(endpoint, payload, undefined, {}), isTimeout(sdk, 10))
+        await assert.rejects(new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test' })
+            .call(endpoint, payload, undefined, { timeout: 5 }), isTimeout(sdk, 5))
+    })
+
+    test(`${platform}: signal cancels the request in flight with its reason`, async () => {
+        const sent = []
+        const { pa, state } = powerAuthStub()
+        const sdk = await load(platform, hangingFetch(sent))
+        const interceptorSignal = new AbortController().signal
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test', timeout: 10000,
+            requestInterceptors: [request => ({ ...request, signal: interceptorSignal })] })
+        const controller = new AbortController()
+        const call = service.call(sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE), payload, undefined, { signal: controller.signal })
+        while (sent.length === 0) await new Promise(setImmediate)
+        assert.notEqual(sent[0].signal, interceptorSignal)
+        assert.notEqual(sent[0].signal, controller.signal)
+        assert.equal(sent[0].signal.aborted, false)
+        controller.abort('user left')
+        await assert.rejects(call, isCancelled(sdk, 'user left'))
+        assert.equal(sent[0].signal.aborted, true)
+        assert.equal(state.encryptors[0].released, 1)
+    })
+
+    test(`${platform}: already cancelled signal rejects before any work`, async () => {
+        const { pa, state } = powerAuthStub()
+        const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+        const controller = new AbortController()
+        controller.abort('early')
+        const service = new sdk.WPNNetworking(pa, { userAgent: 'test' })
+        await assert.rejects(service.call(sdk.WPNEndpoint.signed('/x', '/uri'), payload, {}, { signal: controller.signal }), isCancelled(sdk, 'early'))
+        assert.deepEqual(state.events, [])
+        assert.equal(state.configurationReads, 0)
+    })
+
+    test(`${platform}: cancelling during signing does not encrypt or send the request`, async () => {
+        const { pa, state } = powerAuthStub()
+        let finishAuthentication
+        pa.authenticationHeaderForRequestWithBody = () => new Promise(resolve => { finishAuthentication = resolve })
+        const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
+        const controller = new AbortController()
+        const call = service.call(sdk.WPNEndpoint.signed('/x', '/uri', undefined, sdk.WPNE2EEConfiguration.ACTIVATION_SCOPE), payload, {}, { signal: controller.signal })
+        await new Promise(setImmediate)
+        controller.abort()
+        finishAuthentication({ name: 'Authorization', value: 'auth' })
+        await assert.rejects(call, actual => actual instanceof sdk.WPNCancelledException)
+        assert.equal(state.encryptors.length, 0)
+    })
+
+    test(`${platform}: completed call clears its timer and signal listener`, async () => {
+        const timers = { set: [], cleared: [] }
+        const sdk = await load(platform, async () => new Response(ok), {
+            setTimeout: (fn, ms) => { const id = setTimeout(fn, ms); timers.set.push([id, ms]); return id },
+            clearTimeout: id => { timers.cleared.push(id); clearTimeout(id) }
+        })
+        const listeners = []
+        const signal = {
+            aborted: false,
+            addEventListener: (type, fn) => listeners.push([type, fn]),
+            removeEventListener: (type, fn) => listeners.splice(listeners.findIndex(item => item[0] === type && item[1] === fn), 1)
+        }
+        const service = new sdk.WPNNetworking({}, { baseURL: 'https://example.test', userAgent: 'test', timeout: 30000 })
+        assert.equal((await service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, { signal })).status, 'OK')
+        assert.deepEqual(timers.set.map(([, ms]) => ms), [30000])
+        assert.deepEqual(timers.cleared, [timers.set[0][0]])
+        assert.deepEqual(listeners, [])
+    })
+
+    test(`${platform}: rejects invalid timeouts`, async () => {
+        const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+        for (const timeout of [-1, NaN, Infinity, 2 ** 31, '100', null]) {
+            assert.throws(() => new sdk.WPNNetworking({}, { baseURL: 'https://example.test', timeout }),
+                error => error instanceof sdk.WPNException && /WPNConfig.timeout must be a number/.test(error.description))
+            await assert.rejects(new sdk.WPNNetworking({}, { baseURL: 'https://example.test' }).call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, { timeout }),
+                error => error instanceof sdk.WPNException && /WPNCallOptions.timeout must be a number/.test(error.description))
+        }
+    })
+
+    test(`${platform}: timeout aborts a real HTTP request`, async () => {
+        const closed = []
+        const server = createServer((req, res) => { req.on('close', () => closed.push(req.url)) })
+        server.listen(0, '127.0.0.1')
+        await once(server, 'listening')
+        try {
+            const sdk = await load(platform, fetch)
+            const service = new sdk.WPNNetworking({}, { baseURL: `http://127.0.0.1:${server.address().port}`, userAgent: 'test', timeout: 50 })
+            await assert.rejects(service.call(sdk.WPNEndpoint.unsigned('/slow'), payload), isTimeout(sdk, 50))
+            while (closed.length === 0) await new Promise(resolve => setTimeout(resolve, 5))
+            assert.deepEqual(closed, ['/slow'])
+        } finally {
+            server.closeAllConnections()
+            await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+        }
     })
 
     test(`${platform}: sends JSON and binary HTTP bodies and maps server responses`, async () => {
