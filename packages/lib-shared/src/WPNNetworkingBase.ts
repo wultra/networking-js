@@ -229,7 +229,9 @@ export abstract class WPNNetworkingBase {
     ): Promise<{ response: Response, body: string | Uint8Array }> {
         const send = async (signal?: AbortSignal) => {
             // The library owns the signal, so timeout and cancellation work regardless of interceptors.
-            const response = await fetch(request.url, signal ? { ...request, signal } : request)
+            const response = await fetch(request.url, signal
+                ? Object.create(request, { signal: { value: signal, enumerable: true } })
+                : request)
             const body = binary(response) ? new Uint8Array(await response.arrayBuffer()) : await response.text()
             return { response, body }
         }

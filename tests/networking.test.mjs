@@ -477,6 +477,48 @@ for (const platform of ['rn', 'cordova']) {
             .call(endpoint, payload, undefined, { timeout: 5 }), isTimeout(sdk, 5))
     })
 
+    for (const shape of ['inherited', 'non-enumerable']) {
+        for (const option of ['timeout', 'signal']) {
+            test(`${platform}: ${option} preserves ${shape} interceptor request options`, async () => {
+                const originalSignal = new AbortController().signal
+                let intercepted
+                const sdk = await load(platform, async (url, request) => {
+                    assert.equal(url, 'https://example.test/x')
+                    assert.equal(request.method, 'POST')
+                    assert.equal(request.body, JSON.stringify(payload))
+                    assert.equal(request.headers.get('X-Interceptor'), 'preserved')
+                    assert.equal(request.credentials, 'include')
+                    assert.notEqual(request.signal, originalSignal)
+                    assert.equal(request.signal.aborted, false)
+                    const outgoing = new Request(url, request)
+                    assert.equal(outgoing.method, 'POST')
+                    assert.equal(outgoing.headers.get('X-Interceptor'), 'preserved')
+                    assert.equal(await outgoing.text(), JSON.stringify(payload))
+                    return new Response(ok)
+                })
+                const service = new sdk.WPNNetworking({}, {
+                    baseURL: 'https://example.test',
+                    userAgent: 'test',
+                    requestInterceptors: [request => {
+                        request.headers.set('X-Interceptor', 'preserved')
+                        const properties = { ...request, credentials: 'include', signal: originalSignal }
+                        intercepted = shape === 'inherited'
+                            ? Object.create(properties)
+                            : Object.defineProperties({}, Object.fromEntries(
+                                Object.entries(properties).map(([key, value]) => [key, { value }])
+                            ))
+                        return Object.freeze(intercepted)
+                    }]
+                })
+                const options = option === 'timeout'
+                    ? { timeout: 10000 }
+                    : { signal: new AbortController().signal }
+                assert.equal((await service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, options)).status, 'OK')
+                assert.equal(intercepted.signal, originalSignal)
+            })
+        }
+    }
+
     test(`${platform}: signal cancels the request in flight with its reason`, async () => {
         const sent = []
         const { pa, state } = powerAuthStub()
