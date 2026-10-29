@@ -8,7 +8,7 @@
 import { WPNE2EEConfiguration, WPNEndpoint, WPNEndpointType } from '../../lib-shared/src/WPNEndpoint'
 import { WPNException } from '../../lib-shared/src/WPNException'
 import { WPNResponse } from '../../lib-shared/src/WPNResponse'
-import { WPNConfig } from '../../lib-shared/src/WPNConfig'
+import { WPNCallOptions, WPNConfig } from '../../lib-shared/src/WPNConfig'
 import { WPNEncryptor, WPNNetworkingBase } from '../../lib-shared/src/WPNNetworkingBase'
 import "cordova-powerauth-mobile-sdk"
 
@@ -39,6 +39,7 @@ export class WPNNetworking extends WPNNetworkingBase {
      * @param requestData Request data object, will be serialized to JSON
      * @param authentication PowerAuthAuthentication object defining authentication factors to be used, or undefined for unsigned requests
      * If the endpoint is signed and authentication is not provided, an exception is thrown.
+     * @param options Optional cancellation signal and timeout of this call
      *
      * **Type Parameters:**
      * @param TRequest Type of the request data
@@ -50,11 +51,14 @@ export class WPNNetworking extends WPNNetworkingBase {
      * **Throws:**
      * @throws WPNException when an internal error occurs
      * @throws WPNKnownRestApiError when a known REST API error is returned from the server
+     * @throws WPNCancelledException when the call is cancelled with `options.signal`
+     * @throws WPNTimeoutException when the server does not respond within the timeout
      */
     call<TRequest, TResponse>(
         endpoint: WPNEndpoint<TRequest, TResponse>,
         requestData: TRequest, 
-        authentication: PowerAuthAuthentication | undefined
+        authentication: PowerAuthAuthentication | undefined,
+        options?: WPNCallOptions
     ): Promise<WPNResponse<TResponse>> {
         // Ensure that authentication object is provided for signed requests
         if (!authentication && endpoint.type !== WPNEndpointType.UNSIGNED) {
@@ -69,7 +73,8 @@ export class WPNNetworking extends WPNNetworkingBase {
                 .then(header => ({ key: header.name, value: header.value })),
             // Signing with token function
             () => this.pa.tokenStore.requestAccessToken(endpoint.tokenName!, authentication!).then(token => this.pa.tokenStore.generateAuthenticationHeader(token.tokenName))
-                .then(header => ({ key: header.name, value: header.value }))
+                .then(header => ({ key: header.name, value: header.value })),
+            options
         )
     }
 

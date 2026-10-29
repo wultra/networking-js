@@ -6,12 +6,12 @@
  */
 
 import { WPNResponse, WPNResponseError } from "./WPNResponse"
-import { WPNException } from "./WPNException"
+import { WPNCancelledException, WPNException, WPNTimeoutException } from "./WPNException"
 import { WPNLogger, WPNLoggerConfig, WPNLoggerVerbosity } from "./WPNLogger"
 import { WPNUserAgent, WPNUserAgentUtils } from "./WPNUserAgent"
 import { WPNEndpoint, WPNEndpointType } from "./WPNEndpoint"
 import { decodeBase64, encodeBase64, decodeBase64Bytes, encodeBase64Bytes } from "./WPNBase64"
-import { WPNConfig, WPNRequest, WPNRequestInterceptor } from "./WPNConfig"
+import { WPNCallOptions, WPNConfig, WPNRequest, WPNRequestInterceptor } from "./WPNConfig"
 
 /** Authentication token to be added to the request headers */
 export type WPNAuthToken = { key: string, value: string } | undefined
@@ -41,6 +41,7 @@ export abstract class WPNNetworkingBase {
 
     private readonly baseURL: string | (() => Promise<string>)
     private readonly requestInterceptors: readonly WPNRequestInterceptor[]
+    private readonly timeout: number
 
     protected constructor(config: WPNConfig, defaultBaseURL: () => Promise<string>) {
         // Reject the removed positional arguments, e.g. `new WPNNetworking(pa, "https://...")`, from untyped callers.
@@ -51,14 +52,43 @@ export abstract class WPNNetworkingBase {
         this.acceptLanguage = config.acceptLanguage || "en"
         this.userAgent = config.userAgent || WPNUserAgent.LIBRARY_DEFAULT
         this.requestInterceptors = Object.freeze((config.requestInterceptors || []).slice())
+        this.timeout = validateTimeout(config.timeout, "WPNConfig.timeout") ?? 0
     }
 
     protected async callInternal<TRequest, TResponse>(
         requestData: TRequest, 
         endpoint: WPNEndpoint<TRequest, TResponse>,
         sign: (body: string) => Promise<WPNAuthToken>,
-        signWithToken: () => Promise<WPNAuthToken>
+        signWithToken: () => Promise<WPNAuthToken>,
+        options: WPNCallOptions | undefined
     ): Promise<WPNResponse<TResponse>> {
+
+        const timeout = validateTimeout(options?.timeout, "WPNCallOptions.timeout") ?? this.timeout
+        const signal = options?.signal
+        try {
+            const response = await this.perform(requestData, endpoint, sign, signWithToken, timeout, signal)
+            // PowerAuth steps cannot be interrupted, so honor a cancellation that happened during decryption.
+            throwIfCancelled(signal)
+            return response
+        } catch (e) {
+            // Once cancelled, report the cancellation instead of failures it caused, e.g. a rejected biometric prompt.
+            if (signal?.aborted && !(e instanceof WPNCancelledException) && !(e instanceof WPNTimeoutException)) {
+                throw new WPNCancelledException(signal.reason)
+            }
+            throw e
+        }
+    }
+
+    private async perform<TRequest, TResponse>(
+        requestData: TRequest,
+        endpoint: WPNEndpoint<TRequest, TResponse>,
+        sign: (body: string) => Promise<WPNAuthToken>,
+        signWithToken: () => Promise<WPNAuthToken>,
+        timeout: number,
+        signal: AbortSignal | undefined
+    ): Promise<WPNResponse<TResponse>> {
+
+        throwIfCancelled(signal)
 
         // prepare URL, body and headers
         const baseURL = typeof this.baseURL === "string" ? this.baseURL : await this.baseURL()
@@ -77,6 +107,9 @@ export abstract class WPNNetworkingBase {
             headers.set("User-Agent", userAgent)
         }
 
+        // Do not start signing, which can show a biometric prompt, for a cancelled call.
+        throwIfCancelled(signal)
+
         // Authenticate the plaintext request body before encryption.
         let authHeader: WPNAuthToken
         if (endpoint.type === WPNEndpointType.SIGNED) {
@@ -89,6 +122,8 @@ export abstract class WPNNetworkingBase {
         if (authHeader) {
             headers.set(authHeader.key, authHeader.value)
         }
+        // Signing cannot be interrupted, so do not continue with a request cancelled meanwhile.
+        throwIfCancelled(signal)
 
         // Encrypt the request if needed
         const encryptor = await this.getEncryptor(endpoint)
@@ -117,11 +152,11 @@ export abstract class WPNNetworkingBase {
                 }
             }
 
-            // Fetch the result and get the response
-            const result = await fetch(request.url, request)
+            // Fetch the result and read the response body; encrypted successful responses are binary.
+            const { response: result, body } = await this.fetchResponse(request, response => !!encryptor && response.ok, timeout, signal)
             // Parse plaintext HTTP errors without consuming the single-use decryptor.
             if (encryptor && !result.ok) {
-                const errorBody = await result.text()
+                const errorBody = body as string
                 WPNLogger.info(` <- ${request.method} ${request.url} - ${result.status}`)
                 if (WPNLoggerConfig.verbosity >= WPNLoggerVerbosity.VERBOSE) {
                     WPNLogger.verbose(this.getHeadersString(result.headers))
@@ -143,8 +178,8 @@ export abstract class WPNNetworkingBase {
             }
 
             const responseBody = encryptor
-                ? encodeBase64Bytes(new Uint8Array(await result.arrayBuffer()))
-                : await result.text()
+                ? encodeBase64Bytes(body as Uint8Array)
+                : body as string
 
             // Decrypt the response if needed
             try {
@@ -177,6 +212,56 @@ export abstract class WPNNetworkingBase {
             }
         } finally {
             await encryptor?.release()
+        }
+    }
+
+    /**
+     * Sends the request and reads the response body, as bytes when `binary` returns true.
+     *
+     * Rejects with `WPNTimeoutException` or `WPNCancelledException` and aborts the request when the timeout
+     * elapses or the signal is aborted. The call rejects even if the platform `fetch` ignores the abort.
+     */
+    private async fetchResponse(
+        request: WPNRequest,
+        binary: (response: Response) => boolean,
+        timeout: number,
+        cancelSignal: AbortSignal | undefined
+    ): Promise<{ response: Response, body: string | Uint8Array }> {
+        const send = async (signal?: AbortSignal) => {
+            // The library owns the signal, so timeout and cancellation work regardless of interceptors.
+            const response = await fetch(request.url, signal
+                ? Object.create(request, { signal: { value: signal, enumerable: true } })
+                : request)
+            const body = binary(response) ? new Uint8Array(await response.arrayBuffer()) : await response.text()
+            return { response, body }
+        }
+        if (!timeout && !cancelSignal) {
+            return send()
+        }
+        throwIfCancelled(cancelSignal)
+
+        const controller = new AbortController()
+        let timer: ReturnType<typeof setTimeout> | undefined
+        let onCancel: (() => void) | undefined
+        const aborted = new Promise<never>((_, reject) => {
+            const abort = (error: WPNException, message: string) => {
+                WPNLogger.info(` <- ${request.method} ${request.url} - ${message}`)
+                reject(error)
+                controller.abort()
+            }
+            onCancel = () => abort(new WPNCancelledException(cancelSignal?.reason), "cancelled")
+            cancelSignal?.addEventListener("abort", onCancel)
+            if (timeout) {
+                timer = setTimeout(() => abort(new WPNTimeoutException(timeout), `timed out after ${timeout} ms`), timeout)
+            }
+        })
+        try {
+            const sending = send(controller.signal)
+            sending.catch(() => {}) // the abort error is reported instead of the fetch error
+            return await Promise.race([sending, aborted])
+        } finally {
+            clearTimeout(timer)
+            cancelSignal?.removeEventListener("abort", onCancel!)
         }
     }
 
@@ -236,6 +321,25 @@ export abstract class WPNNetworkingBase {
             result += ` "${k}:" "${v}",`
         })
         return result + "}"
+    }
+}
+
+// Largest delay supported by `setTimeout`.
+const MAX_TIMEOUT = 2147483647
+
+function validateTimeout(timeout: unknown, name: string): number | undefined {
+    if (timeout === undefined) {
+        return undefined
+    }
+    if (typeof timeout !== "number" || !(timeout >= 0 && timeout <= MAX_TIMEOUT)) {
+        throw new WPNException(`WPNNetworking: ${name} must be a number of milliseconds from 0 to ${MAX_TIMEOUT}.`)
+    }
+    return timeout
+}
+
+function throwIfCancelled(signal: AbortSignal | undefined) {
+    if (signal?.aborted) {
+        throw new WPNCancelledException(signal.reason)
     }
 }
 
