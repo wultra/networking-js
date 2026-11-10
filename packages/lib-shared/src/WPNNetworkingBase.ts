@@ -128,6 +128,7 @@ export abstract class WPNNetworkingBase {
         // Encrypt the request if needed
         const encryptor = await this.getEncryptor(endpoint)
         try {
+            throwIfCancelled(signal)
             const requestBody = await this.encryptRequest(requestSerialized, endpoint, encryptor, headers)
 
             // Interceptors receive the final request, including authorization and encryption.
@@ -230,7 +231,7 @@ export abstract class WPNNetworkingBase {
         const send = async (signal?: AbortSignal) => {
             // The library owns the signal, so timeout and cancellation work regardless of interceptors.
             const response = await fetch(request.url, signal
-                ? Object.create(request, { signal: { value: signal, enumerable: true } })
+                ? withSignal(request, signal)
                 : request)
             const body = binary(response) ? new Uint8Array(await response.arrayBuffer()) : await response.text()
             return { response, body }
@@ -326,6 +327,29 @@ export abstract class WPNNetworkingBase {
 
 // Largest delay supported by `setTimeout`.
 const MAX_TIMEOUT = 2147483647
+
+// Read standard options by name, including inherited properties and getters on their original receiver.
+const REQUEST_INIT_KEYS = [
+    "method", "headers", "body", "mode", "credentials", "cache", "redirect",
+    "referrer", "referrerPolicy", "integrity", "keepalive", "priority"
+] as const
+
+function withSignal(request: WPNRequest, signal: AbortSignal): WPNRequest {
+    const keys = new Set<PropertyKey>([
+        ...Reflect.ownKeys(request).filter(key => Object.prototype.propertyIsEnumerable.call(request, key)),
+        ...REQUEST_INIT_KEYS
+    ])
+    const init: WPNRequest = { url: request.url }
+    keys.forEach(key => {
+        if (key !== "url" && key !== "signal" && key in request) {
+            Object.defineProperty(init, key, {
+                value: Reflect.get(request, key), enumerable: true, writable: true, configurable: true
+            })
+        }
+    })
+    init.signal = signal
+    return init
+}
 
 function validateTimeout(timeout: unknown, name: string): number | undefined {
     if (timeout === undefined) {

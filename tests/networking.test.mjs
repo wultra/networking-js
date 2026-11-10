@@ -477,7 +477,7 @@ for (const platform of ['rn', 'cordova']) {
             .call(endpoint, payload, undefined, { timeout: 5 }), isTimeout(sdk, 5))
     })
 
-    for (const shape of ['inherited', 'non-enumerable']) {
+    for (const shape of ['inherited', 'non-enumerable', 'private-field getter']) {
         for (const option of ['timeout', 'signal']) {
             test(`${platform}: ${option} preserves ${shape} interceptor request options`, async () => {
                 const originalSignal = new AbortController().signal
@@ -488,6 +488,8 @@ for (const platform of ['rn', 'cordova']) {
                     assert.equal(request.body, JSON.stringify(payload))
                     assert.equal(request.headers.get('X-Interceptor'), 'preserved')
                     assert.equal(request.credentials, 'include')
+                    assert.equal(request.priority, 'high')
+                    assert.equal(Object.getPrototypeOf(Object.getPrototypeOf(request)), null)
                     assert.notEqual(request.signal, originalSignal)
                     assert.equal(request.signal.aborted, false)
                     const outgoing = new Request(url, request)
@@ -501,8 +503,19 @@ for (const platform of ['rn', 'cordova']) {
                     userAgent: 'test',
                     requestInterceptors: [request => {
                         request.headers.set('X-Interceptor', 'preserved')
-                        const properties = { ...request, credentials: 'include', signal: originalSignal }
-                        intercepted = shape === 'inherited'
+                        const properties = { ...request, credentials: 'include', priority: 'high', signal: originalSignal }
+                        intercepted = shape === 'private-field getter'
+                            ? new class {
+                                #request = properties
+                                get url() { return this.#request.url }
+                                get method() { return this.#request.method }
+                                get headers() { return this.#request.headers }
+                                get body() { return this.#request.body }
+                                get credentials() { return this.#request.credentials }
+                                get priority() { return this.#request.priority }
+                                get signal() { return this.#request.signal }
+                            }()
+                            : shape === 'inherited'
                             ? Object.create(properties)
                             : Object.defineProperties({}, Object.fromEntries(
                                 Object.entries(properties).map(([key, value]) => [key, { value }])
@@ -517,6 +530,43 @@ for (const platform of ['rn', 'cordova']) {
                 assert.equal(intercepted.signal, originalSignal)
             })
         }
+    }
+
+    for (const option of ['timeout', 'signal']) {
+        test(`${platform}: ${option} copies getters once without reading the replaced signal`, async () => {
+            const reads = { body: 0, credentials: 0, custom: 0, symbol: 0 }
+            const symbol = Symbol('custom option')
+            let intercepted
+            const sdk = await load(platform, async (_url, request) => {
+                assert.equal(request.body, JSON.stringify(payload))
+                assert.equal(request.credentials, 'include')
+                assert.equal(request.custom, 'extension')
+                assert.equal(request[symbol], 'symbol extension')
+                assert.equal(request.signal.aborted, false)
+                assert.deepEqual(reads, { body: 1, credentials: 1, custom: 1, symbol: 1 })
+                return new Response(ok)
+            })
+            const service = new sdk.WPNNetworking({}, {
+                baseURL: 'https://example.test',
+                userAgent: 'test',
+                requestInterceptors: [request => {
+                    intercepted = Object.defineProperties({ ...request }, {
+                        body: { enumerable: true, get() {
+                            assert.equal(this, intercepted)
+                            reads.body++
+                            return request.body
+                        } },
+                        credentials: { enumerable: true, get() { reads.credentials++; return 'include' } },
+                        custom: { enumerable: true, get() { reads.custom++; return 'extension' } },
+                        [symbol]: { enumerable: true, get() { reads.symbol++; return 'symbol extension' } },
+                        signal: { enumerable: true, get() { assert.fail('replaced signal must not be read') } }
+                    })
+                    return Object.freeze(intercepted)
+                }]
+            })
+            const options = option === 'timeout' ? { timeout: 10000 } : { signal: new AbortController().signal }
+            assert.equal((await service.call(sdk.WPNEndpoint.unsigned('/x'), payload, undefined, options)).status, 'OK')
+        })
     }
 
     test(`${platform}: signal cancels the request in flight with its reason`, async () => {
@@ -575,6 +625,25 @@ for (const platform of ['rn', 'cordova']) {
         finishConfiguration({ baseEndpointUrl: 'https://example.test' })
         await assert.rejects(call, isCancelled(sdk, 'early'))
         assert.deepEqual(state.events, [])
+    })
+
+    test(`${platform}: cancellation during encryptor acquisition skips encryption and releases the encryptor`, async () => {
+        const controller = new AbortController()
+        const { pa, state } = powerAuthStub()
+        const acquire = pa.getEncryptorForApplicationScope
+        let finishAcquisition
+        pa.getEncryptorForApplicationScope = () => new Promise(resolve => {
+            finishAcquisition = async () => resolve(await acquire())
+        })
+        const sdk = await load(platform, async () => assert.fail('request must not be sent'))
+        const service = new sdk.WPNNetworking(pa, { baseURL: 'https://example.test', userAgent: 'test' })
+        const call = service.call(sdk.WPNEndpoint.unsigned('/x', undefined, sdk.WPNE2EEConfiguration.APPLICATION_SCOPE), payload, undefined, { signal: controller.signal })
+        await new Promise(setImmediate)
+        assert.equal(typeof finishAcquisition, 'function')
+        controller.abort('stop')
+        await finishAcquisition()
+        await assert.rejects(call, isCancelled(sdk, 'stop'))
+        assert.deepEqual(state.encryptors, [{ scope: 'application', released: 1, encrypted: 0, decrypted: 0 }])
     })
 
     for (const failure of ['sign', 'acquire', 'encrypt', 'decrypt']) {
