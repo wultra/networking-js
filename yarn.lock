@@ -1545,9 +1545,10 @@ cordova-lib@^12.0.0:
     stringify-package "^1.0.1"
     write-file-atomic "^5.0.0"
 
-"cordova-powerauth-mobile-sdk@https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/cordova-powerauth-mobile-sdk-5.0.0.tgz":
+cordova-powerauth-mobile-sdk@^5.0.0:
   version "5.0.0"
-  resolved "https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/cordova-powerauth-mobile-sdk-5.0.0.tgz#723deec282e9b851673b04e31a79a8876a15277a"
+  resolved "https://registry.yarnpkg.com/cordova-powerauth-mobile-sdk/-/cordova-powerauth-mobile-sdk-5.0.0.tgz#3d75ecd0e8fdec4d9494075979b46b591ea5071d"
+  integrity sha512-hoJfHV4mCJ7GpDC52Y38aWIluEFKzDSQhqKstJsRd4RZIKSJ6d7SJ9IfbakWWlNt/deBgfpmAeIVcHBF5+92rA==
 
 cordova-serve@^4.0.1:
   version "4.0.1"
@@ -4011,9 +4012,10 @@ react-is@^18.0.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.3.1.tgz#e83557dc12eae63a99e003a46388b1dcbb44db7e"
   integrity sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==
 
-"react-native-powerauth-mobile-sdk@https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/react-native-powerauth-mobile-sdk-5.0.0.tgz":
+react-native-powerauth-mobile-sdk@^5.0.0:
   version "5.0.0"
-  resolved "https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/react-native-powerauth-mobile-sdk-5.0.0.tgz#1e9898a598b8960f1d0f41557d2aa83929e9e2cd"
+  resolved "https://registry.yarnpkg.com/react-native-powerauth-mobile-sdk/-/react-native-powerauth-mobile-sdk-5.0.0.tgz#cd8f68c62cc8e3d3cf9137b82943b4ba4329bc42"
+  integrity sha512-F0RkapiuvrzFBNvjYIFXM2gtBOOdXG7DUQZg78t8c/NL48xckYx4zMLgLV/f77tl4ZBpNlsBEeNDdewot6r+LA==
   dependencies:
     node-fetch ">=2.6.1"
 
