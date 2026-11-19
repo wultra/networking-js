@@ -49,7 +49,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 
 ### PowerAuth JS SDK Dependency
 
-PowerAuth Mobile JS SDK 5.0.0 is a required peer dependency.
+PowerAuth Mobile JS SDK 5.0.0 or a newer 5.x version is a required peer dependency.
 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
@@ -70,7 +70,7 @@ The library is available for the following __React Native (0.87+)__ platforms:
 ##### 1. Install packages via npm
 ```sh
 # if not added yet, add PowerAuth Mobile SDK first
-npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
+npm i react-native-powerauth-mobile-sdk --save
 npm i react-native-powerauth-networking --save
 ```
 
@@ -409,7 +409,7 @@ In case you want to process logs on your own (for example log into a file or som
 
 ## Migration to PowerAuth Mobile JS SDK 5.0
 
-This version of the library works only with PowerAuth Mobile JS SDK 5.0.0. Follow the steps below when you upgrade from version 1.0.x.
+This version of the library works only with PowerAuth Mobile JS SDK 5.x. Follow the steps below when you upgrade from version 1.0.x.
 
 ### 1. Upgrade PowerAuth first
 
@@ -423,7 +423,7 @@ This library does not create, change, or upgrade activations. Your existing endp
 
 ### 2. Update dependencies and platforms
 
-- __React Native__: install PowerAuth Mobile JS SDK 5.0.0 and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
+- __React Native__: install PowerAuth Mobile JS SDK 5.x and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
 - __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 15.0+ are required. The plugin sets the `deployment-target` preference to `15.0`. If your `config.xml` sets a lower value, raise it.
 
 ### 3. Pass a configuration object to the constructor
