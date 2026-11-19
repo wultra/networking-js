@@ -37,4 +37,26 @@ export interface WPNConfig {
     readonly userAgent?: WPNUserAgent | string
     /** Interceptors applied in declaration order to every request right before it is sent. Default is none. */
     readonly requestInterceptors?: readonly WPNRequestInterceptor[]
+    /**
+     * Timeout of every request in milliseconds. Default is `0`, which means no timeout.
+     *
+     * The timeout covers sending the request and receiving the response. It does not include
+     * the PowerAuth signing and encryption before the request is sent, such as a biometric prompt.
+     * When it elapses, the call rejects with `WPNTimeoutException`. Override it per call with `WPNCallOptions.timeout`.
+     */
+    readonly timeout?: number
+}
+
+/** Options of a single `WPNNetworking.call()`. */
+export interface WPNCallOptions {
+    /**
+     * Signal that cancels the call. When it is aborted, the call rejects with `WPNCancelledException`.
+     *
+     * A request in flight is aborted. If PowerAuth is signing, encrypting, or decrypting, the call rejects
+     * once that step finishes, and a request that was not sent yet is not sent. Once the signal is aborted,
+     * the call rejects with `WPNCancelledException` even if a step then fails or the response arrives.
+     */
+    readonly signal?: AbortSignal
+    /** Timeout of this call in milliseconds. Overrides `WPNConfig.timeout`. Use `0` to disable the timeout. */
+    readonly timeout?: number
 }

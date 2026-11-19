@@ -1,6 +1,6 @@
 {
   "name": "react-native-powerauth-networking",
-  "version": "2.0.0",
+  "version": "0.0.1-dev",
   "description": "A high-level networking SDK for PowerAuth-based endpoints.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -33,7 +33,7 @@
     "react": "19.2.3",
     "react-native": "0.87.0",
     "typescript": "^5.2.2",
-    "react-native-powerauth-mobile-sdk": "https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/react-native-powerauth-mobile-sdk-5.0.0.tgz"
+    "react-native-powerauth-mobile-sdk": "^5.0.0"
   },
   "resolutions": {
     "@types/react": "^19.2.0"
@@ -41,6 +41,6 @@
   "peerDependencies": {
     "react": "^19.2.3",
     "react-native": ">=0.87.0",
-    "react-native-powerauth-mobile-sdk": "5.0.0"
+    "react-native-powerauth-mobile-sdk": "^5.0.0"
   }
 }

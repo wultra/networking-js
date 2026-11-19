@@ -33,6 +33,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 - [Endpoint Definition](#endpoint-definition)
 - [Creating an HTTP request](#creating-an-http-request)
 - [Request Interceptors](#request-interceptors)
+- [Timeout and Cancellation](#timeout-and-cancellation)
 - [Error Handling](#error-handling)
 - [Language Configuration](#language-configuration)
 - [Logging](#logging)
@@ -48,7 +49,7 @@ We use this SDK in our other open-source projects that you can take inspiration 
 
 ### PowerAuth JS SDK Dependency
 
-PowerAuth Mobile JS SDK 5.0.0 is a required peer dependency.
+PowerAuth Mobile JS SDK 5.0.0 or a newer 5.x version is a required peer dependency.
 
 Defining it as a peer dependency ensures that only a single instance of the PowerAuth SDK is used in your project, preventing issues with multiple npm clones.
 
@@ -69,7 +70,7 @@ The library is available for the following __React Native (0.87+)__ platforms:
 ##### 1. Install packages via npm
 ```sh
 # if not added yet, add PowerAuth Mobile SDK first
-npm i https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/download/5.0.0-beta-2/react-native-powerauth-mobile-sdk-5.0.0.tgz --save
+npm i react-native-powerauth-mobile-sdk --save
 npm i react-native-powerauth-networking --save
 ```
 
@@ -131,7 +132,8 @@ const networking = new WPNNetworking(pa, {
     baseURL: "https://my.backend.com/api/v3", // optional, see below
     acceptLanguage: "en", // optional, see "Language Configuration"
     userAgent: WPNUserAgent.LIBRARY_DEFAULT, // optional, value of the User-Agent header
-    requestInterceptors: [] // optional, see "Request Interceptors"
+    requestInterceptors: [], // optional, see "Request Interceptors"
+    timeout: 20000 // optional, in milliseconds, see "Timeout and Cancellation"
 })
 ```
 
@@ -212,6 +214,7 @@ To create an HTTP request to your endpoint, you need to call the `WPNNetworking.
 - `requestData` - request data that will be sent to the server
 - `authentication` - `PowerAuthAuthentication` instance that will sign the request (if needed)
   - pass `undefined` for the basic `unsigned` endpoint
+- `options` - optional `WPNCallOptions` with a cancellation `signal` and a `timeout` of this call, see [Timeout and Cancellation](#timeout-and-cancellation)
 
 The method is asynchronous and returns a `Promise` with the response or an error.
 
@@ -271,6 +274,8 @@ Interceptors must return the request synchronously, including its `url`. Interce
 Do not change the `X-PowerAuth-*` headers or the request body. Otherwise, the server rejects the request. For encrypted endpoints, the body is a `Uint8Array` with encrypted bytes. If you change the `url`, the request, including its PowerAuth headers, is sent to the new URL. Only point it to servers you trust.
 <!-- end -->
 
+When a timeout or a cancellation signal applies to the call, the library sets the `signal` of the request after the interceptors run. A `signal` set by an interceptor is replaced. Use [Timeout and Cancellation](#timeout-and-cancellation) instead.
+
 ### Example: adding an X-Correlation-ID header
 
 A common use case is adding a correlation ID to every request, so you can trace it across your backend services:
@@ -286,6 +291,55 @@ const networking = new WPNNetworking(pa, {
     baseURL: "https://my.backend.com/api/v3",
     requestInterceptors: [addCorrelationId]
 })
+```
+
+## Timeout and Cancellation
+
+By default, requests have no timeout, so they wait as long as the platform `fetch` allows.
+
+### Timeout
+
+Set a timeout in milliseconds for all requests with `WPNConfig.timeout`, or for a single call with the `timeout` option. The call option overrides the configuration. Use `0` to disable the timeout for a call.
+
+```typescript
+const networking = new WPNNetworking(pa, { timeout: 20000 }) // 20 seconds for every request
+
+// this call waits up to 60 seconds
+const response = await networking.call(endpoint, requestData, auth, { timeout: 60000 })
+```
+
+The timeout covers sending the request and receiving the response. It does not include the PowerAuth signing and encryption before the request is sent. For example, the time the user spends on a biometric prompt does not count. When the timeout elapses, the request is aborted, and the call rejects with `WPNTimeoutException`.
+
+### Cancellation
+
+To cancel a call, pass the `signal` of an `AbortController` in the `signal` option, and call `abort()` when you no longer need the response. The call rejects with `WPNCancelledException`. Its `reason` contains the abort reason, if the platform supports it.
+
+```typescript
+const controller = new AbortController()
+const call = networking.call(endpoint, requestData, auth, { signal: controller.signal })
+
+// for example, when the user leaves the screen
+controller.abort()
+```
+
+A request that is already in flight is aborted. PowerAuth signing, encryption, and decryption cannot be interrupted. If you cancel during one of them, the call rejects after that step finishes, and a request that was not sent yet is not sent. Once you cancel, the call always rejects with `WPNCancelledException`, even when a step then fails or the response arrives. The server might still have received and processed a request that was already sent.
+
+### Handling Timeout and Cancellation Errors
+
+Both exceptions extend `WPNException`, so you can tell them apart from each other and from other errors:
+
+```typescript
+try {
+    const response = await networking.call(endpoint, requestData, auth, { signal: controller.signal, timeout: 10000 })
+} catch (error) {
+    if (error instanceof WPNTimeoutException) {
+        // the server did not respond within error.timeout milliseconds
+    } else if (error instanceof WPNCancelledException) {
+        // you cancelled the call, usually nothing to report
+    } else {
+        // other failure
+    }
+}
 ```
 
 ## Server Errors
@@ -355,7 +409,7 @@ In case you want to process logs on your own (for example log into a file or som
 
 ## Migration to PowerAuth Mobile JS SDK 5.0
 
-This version of the library works only with PowerAuth Mobile JS SDK 5.0.0. Follow the steps below when you upgrade from version 1.0.x.
+This version of the library works only with PowerAuth Mobile JS SDK 5.x. Follow the steps below when you upgrade from version 1.0.x.
 
 ### 1. Upgrade PowerAuth first
 
@@ -369,7 +423,7 @@ This library does not create, change, or upgrade activations. Your existing endp
 
 ### 2. Update dependencies and platforms
 
-- __React Native__: install PowerAuth Mobile JS SDK 5.0.0 and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
+- __React Native__: install PowerAuth Mobile JS SDK 5.x and the new version of this library as described in [React Native Installation](#react-native-installation). React Native 0.87+, Android 7.0 (API 24)+, and iOS 15.1+ are required.
 - __Cordova__: update the `cordova-powerauth-networking` plugin. It installs the matching PowerAuth plugin. Android 7.0 (API 24)+ and iOS 15.0+ are required. The plugin sets the `deployment-target` preference to `15.0`. If your `config.xml` sets a lower value, raise it.
 
 ### 3. Pass a configuration object to the constructor
@@ -425,27 +479,19 @@ When the server rejects an encrypted request with an HTTP error, the library no 
 
 ## Development verification
 
-Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
+Run `yarn install --frozen-lockfile`, `yarn test`, and `yarn packAll` (Node 22.11+). Tests cover request construction, headers, response parsing, error mapping, dependency cleanup, and local HTTP transport, timeout, and cancellation in both generated networking packages. PowerAuth is stubbed with fixed responses; its authentication and cryptography are not tested.
 
 
 ## Changelog
 
-### 2.0.0-beta-3
-
-- The library now uses PowerAuth Mobile JS SDK 5.0.0-beta-2. For React Native, install it with the link in [React Native Installation](#react-native-installation). Cordova installs it automatically. This PowerAuth version removes the deprecated `PowerAuthAuthentication` constructor and changes the `PowerAuthPassword` constructor. See the [PowerAuth 5.0.0-beta-2 release notes](https://github.com/wultra/react-native-powerauth-mobile-sdk/releases/tag/5.0.0-beta-2). ([#70](https://github.com/wultra/networking-js/pull/70))
-
-### 2.0.0-beta-2
-
-- Cordova now requires iOS 15.0 or newer. The plugin sets the `deployment-target` preference to `15.0`; raise any lower value in your app's `config.xml`. ([#65](https://github.com/wultra/networking-js/pull/65))
-- `WPNNetworking` now takes a `WPNConfig` object with `baseURL`, `acceptLanguage`, `userAgent`, and `requestInterceptors` instead of separate constructor arguments. See [Pass a configuration object to the constructor](#3-pass-a-configuration-object-to-the-constructor). ([#3](https://github.com/wultra/networking-js/issues/3), [#48](https://github.com/wultra/networking-js/issues/48))
-- Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. Interceptors receive and return a `WPNRequest`, which adds the full `url` to `RequestInit`. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
-
-### 2.0.0-beta-1
+### TBA
 
 - The library now requires PowerAuth Mobile JS SDK 5.0.0 and does not work with older versions. See [Migration to PowerAuth Mobile JS SDK 5.0](#migration-to-powerauth-mobile-js-sdk-50). ([#56](https://github.com/wultra/networking-js/pull/56))
-- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 13.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56))
+- Apps must run on React Native 0.87 or newer, Android 7.0 or newer, and iOS 15.1 or newer (iOS 15.0 or newer with Cordova). ([#56](https://github.com/wultra/networking-js/pull/56), [#65](https://github.com/wultra/networking-js/pull/65))
 - Creating `WPNNetworking` without a base URL no longer fails right away when PowerAuth has no server URL configured. The error now appears when you send a request. ([#56](https://github.com/wultra/networking-js/pull/56))
-- Custom request processors now receive the body of encrypted requests as raw bytes instead of text. Processors that read or change this body stop working. ([#56](https://github.com/wultra/networking-js/pull/56))
+- `WPNNetworking` now takes a `WPNConfig` object with `baseURL`, `acceptLanguage`, `userAgent`, and `requestInterceptors` instead of separate constructor arguments. See [Pass a configuration object to the constructor](#3-pass-a-configuration-object-to-the-constructor). ([#3](https://github.com/wultra/networking-js/issues/3), [#48](https://github.com/wultra/networking-js/issues/48))
+- Request interceptors in `WPNConfig.requestInterceptors` replace the `requestProcessor` argument of `call()`. The `WPNRequestProcessor` type was removed. Interceptors receive and return a `WPNRequest`, which adds the full `url` to `RequestInit`. For encrypted requests, interceptors receive the body as raw bytes instead of text. See [Request Interceptors](#request-interceptors). ([#48](https://github.com/wultra/networking-js/issues/48))
+- You can now set a request timeout with `WPNConfig.timeout` or per call, and cancel a call with an `AbortSignal`. `call()` takes optional `WPNCallOptions` as the fourth argument. Timed out calls reject with `WPNTimeoutException` and cancelled calls with `WPNCancelledException`. See [Timeout and Cancellation](#timeout-and-cancellation). ([#10](https://github.com/wultra/networking-js/issues/10))
 - When the server rejects an encrypted request, the log no longer shows a misleading "Failed to decrypt response" error. You still get the server's error code and message. ([#56](https://github.com/wultra/networking-js/pull/56))
 
 ### 1.0.1

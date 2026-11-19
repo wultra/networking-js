@@ -18,3 +18,27 @@ export class WPNException {
       this.additionalData = additionalData
     }
   }
+
+/** The call was cancelled with the `signal` passed in `WPNCallOptions`. */
+export class WPNCancelledException extends WPNException {
+
+    /** The abort reason of the signal, if the platform provides it. */
+    readonly reason?: any
+
+    constructor(reason?: any) {
+        super("WPNNetworking: Request was cancelled.", reason)
+        this.reason = reason
+    }
+}
+
+/** The server did not respond within the configured timeout. */
+export class WPNTimeoutException extends WPNException {
+
+    /** The timeout that elapsed, in milliseconds. */
+    readonly timeout: number
+
+    constructor(timeout: number) {
+        super(`WPNNetworking: Request timed out after ${timeout} ms.`, { timeout })
+        this.timeout = timeout
+    }
+}
