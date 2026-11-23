@@ -13,6 +13,9 @@ const libRNDir = 'packages/lib-rn'
 const libRNInput = `${libRNDir}/src/index.ts`
 const libRNOutput = `${libRNDir}/lib` 
 
+// Use explicit extensions because picomatch 2.3.2 no longer matches the plugin’s default ts+(|x) glob.
+const typescriptInclude = ["**/*.ts", "**/*.tsx", "**/*.cts", "**/*.mts"]
+
 // Generate both the JavaScript bundle and the TypeScript declaration file
 export default [
 
@@ -30,7 +33,8 @@ export default [
     },
     plugins: [
       typescript({
-        tsconfig: `${libCordovaDir}/tsconfig.json`
+        tsconfig: `${libCordovaDir}/tsconfig.json`,
+        include: typescriptInclude
       }), 
       // We dont want to import modules that will be supplied by Cordova environment
       // Cordova plugins are injected at runtime, so we need to strip these imports from the final bundle to not cause errors.
@@ -69,7 +73,8 @@ export default [
     external: ['react-native-powerauth-mobile-sdk', 'react-native'],
     plugins: [
       typescript({
-        tsconfig: `${libRNDir}/tsconfig.json`
+        tsconfig: `${libRNDir}/tsconfig.json`,
+        include: typescriptInclude
       })
     ]
   },
